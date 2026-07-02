@@ -1,4 +1,4 @@
-# SkyBook — Airline Ticket Reservation System
+# SkyBook: Airline Ticket Reservation System
 
 SkyBook is a web application for searching and booking flights between a
 predefined set of cities. Users search by route, date, and class; pick a
