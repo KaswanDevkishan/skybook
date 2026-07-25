@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Length, Trim
+from django.db.models.lookups import GreaterThan
 
 
 class City(models.Model):
@@ -111,6 +113,16 @@ class Booking(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(fields=["seat"], name="unique_booking_per_seat"),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(user__isnull=False)
+                    | (
+                        GreaterThan(Length(Trim("guest_name")), 0)
+                        & GreaterThan(Length(Trim("guest_email")), 0)
+                    )
+                ),
+                name="booking_has_user_or_guest_details",
+            ),
         ]
 
     def clean(self):

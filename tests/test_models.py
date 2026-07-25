@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from reservations.models import Airline, Booking, City, Flight, Seat
 
@@ -165,6 +166,33 @@ def test_guest_booking_and_string():
     assert str(booking) == "SB101: HND → CTS — seat 1A booked for Guest Traveler"
 
 
+def test_database_rejects_booking_without_user_or_guest_details():
+    seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
+
+    assert_integrity_error(lambda: Booking.objects.create(seat=seat))
+
+
+@pytest.mark.parametrize(
+    ("guest_name", "guest_email"),
+    [
+        ("Guest Traveler", ""),
+        ("", "guest@example.com"),
+        ("   ", "guest@example.com"),
+        ("Guest Traveler", "   "),
+    ],
+)
+def test_database_rejects_incomplete_guest_details(guest_name, guest_email):
+    seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
+
+    assert_integrity_error(
+        lambda: Booking.objects.create(
+            seat=seat,
+            guest_name=guest_name,
+            guest_email=guest_email,
+        )
+    )
+
+
 def test_guest_booking_requires_name_and_email_during_model_validation():
     seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
     booking = Booking(seat=seat, guest_name="", guest_email="")
@@ -176,12 +204,37 @@ def test_guest_booking_requires_name_and_email_during_model_validation():
 def test_booking_survives_registered_user_deletion():
     user = get_user_model().objects.create_user(username="traveler")
     seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
-    booking = Booking.objects.create(seat=seat, user=user)
+    booking = Booking.objects.create(
+        seat=seat,
+        user=user,
+        guest_name="Traveler",
+        guest_email="traveler@example.com",
+    )
 
     user.delete()
     booking.refresh_from_db()
 
     assert booking.user is None
+
+
+def test_referenced_airline_and_cities_are_protected_from_deletion():
+    flight = make_flight()
+
+    for referenced_object in (flight.airline, flight.origin, flight.destination):
+        with pytest.raises(ProtectedError):
+            referenced_object.delete()
+
+
+def test_booked_seat_is_protected_from_deletion():
+    seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
+    Booking.objects.create(
+        seat=seat,
+        guest_name="Guest Traveler",
+        guest_email="guest@example.com",
+    )
+
+    with pytest.raises(ProtectedError):
+        seat.delete()
 
 
 def test_database_rejects_second_booking_for_same_seat():
