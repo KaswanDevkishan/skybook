@@ -1,7 +1,7 @@
 [project]
 name = "skybook"
 version = "0.1.0"
-description = "Add your description here"
+description = "Flask-based airline ticket reservation system for a Web Engineering course"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

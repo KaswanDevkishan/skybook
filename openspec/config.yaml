@@ -1,0 +1,28 @@
+schema: spec-driven
+
+context: |
+  SkyBook is a Web Engineering course project using Python 3.12, Flask 3,
+  SQLite, uv, Ruff, Pytest, and coverage. Preserve the Flask application
+  architecture; do not convert the project to Django or another framework.
+
+  Exercise 4 is limited to documentation, agent guidance, and configuration.
+  Do not implement database models, flight search, booking, authentication, or
+  the seat-map interface during this exercise. Planned entities are City,
+  Airline, Flight, Seat, User, and Booking. Future booking behavior supports
+  guests and registered users and prevents duplicate seat bookings server-side.
+
+  Read relevant OpenSpec documents before meaningful implementation. Use
+  pyproject.toml and CI as the source of truth for development commands.
+
+rules:
+  proposal:
+    - State whether work is allowed within the current exercise.
+    - Identify Flask preservation and deferred application features as non-goals.
+  design:
+    - Do not introduce Django-oriented architecture or dependencies.
+    - Keep Exercise 4 designs limited to documentation and configuration.
+  specs:
+    - Distinguish planned domain behavior from currently implemented behavior.
+  tasks:
+    - Do not add application-feature implementation tasks during Exercise 4.
+    - Include formatting, linting, testing, and OpenSpec validation where relevant.
