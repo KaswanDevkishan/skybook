@@ -21,6 +21,17 @@ instance/
 
 .env
 .env.*
+!.env.example
+*.token
+*.secret
+credentials.json
+secrets.json
+
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.db-journal
 
 .vscode/
 .idea/
