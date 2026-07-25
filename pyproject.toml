@@ -1,11 +1,11 @@
 [project]
 name = "skybook"
 version = "0.1.0"
-description = "Flask-based airline ticket reservation system for a Web Engineering course"
+description = "Django-based airline ticket reservation system for a Web Engineering course"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "flask>=3.1.3",
+    "django>=5.2,<6.0",
 ]
 
 [dependency-groups]
@@ -13,13 +13,14 @@ dev = [
     "coverage>=7.14.3",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "pytest-django>=4.11.1",
     "ruff>=0.15.20",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["app", "tests"]
+src = ["skybook", "reservations", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM"]
@@ -31,11 +32,12 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term-missing"
+addopts = "--cov=skybook --cov=reservations --cov-report=term-missing"
+DJANGO_SETTINGS_MODULE = "skybook.settings"
 
 [tool.coverage.run]
-source = ["app"]
-omit = ["tests/*"]
+source = ["skybook", "reservations"]
+omit = ["tests/*", "*/migrations/*", "manage.py"]
 
 [tool.coverage.report]
 exclude_lines = [
