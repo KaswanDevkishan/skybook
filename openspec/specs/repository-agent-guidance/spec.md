@@ -2,59 +2,62 @@
 
 ## Purpose
 
-Define repository guidance that keeps SkyBook's contributors and agents aligned with
-the project's Flask architecture, course scope, tooling, domain constraints, and
-security expectations.
+Define repository guidance that keeps SkyBook contributors and agents aligned with the
+Exercise 5 Django architecture, course scope, tooling, domain constraints, review
+expectations, and security requirements.
 
 ## Requirements
 
 ### Requirement: Consistent project identity
-Repository guidance SHALL identify SkyBook as a Python 3.12, Flask 3, SQLite airline
-reservation course project and SHALL NOT direct contributors or agents to convert it
-to Django.
+Repository guidance SHALL identify SkyBook as a Python 3.12, Django, SQLite airline
+reservation course project and SHALL NOT direct contributors or agents to restore the
+obsolete Flask scaffold or introduce another web framework.
 
 #### Scenario: Agent selects a web framework
-- **WHEN** an agent reads the repository guidance before planning work
-- **THEN** it finds Flask identified as the required framework and Django conversion
-  prohibited
+- **WHEN** an agent reads repository guidance before planning work
+- **THEN** it finds Django identified as the required framework
 
 ### Requirement: Accurate repository and tooling guidance
-Contributor documentation SHALL reflect the checked-in repository structure and SHALL
-document the `uv` setup and run commands plus the Ruff formatting, Ruff linting, Pytest,
-and coverage commands configured by `pyproject.toml` and CI.
+Contributor documentation SHALL reflect the checked-in Django repository structure and
+SHALL document the `uv` setup, migration, and server commands plus Ruff formatting,
+Ruff linting, Pytest, coverage, Django system checks, and migration drift checks
+configured by `pyproject.toml` and CI.
 
 #### Scenario: Contributor verifies the project
 - **WHEN** a contributor follows the documented quality commands
-- **THEN** formatting, linting, tests, and application coverage run with the repository's
-  configured tools
+- **THEN** Django checks, migrations, formatting, linting, tests, and coverage run with
+  the repository's configured tools
 
 ### Requirement: OpenSpec-first implementation workflow
 Agent guidance and OpenSpec configuration SHALL require relevant OpenSpec documents to
-be read before meaningful implementation and SHALL describe the project constraints
-needed to plan changes safely.
+be read before meaningful implementation and SHALL require focused implementation,
+verification, and human review.
 
 #### Scenario: Agent begins meaningful implementation
 - **WHEN** an agent prepares to modify project behavior or structure
-- **THEN** it first reviews the relevant OpenSpec artifacts and applies their constraints
+- **THEN** it first reviews the relevant OpenSpec artifacts and applies their
+  constraints
 
-### Requirement: Exercise 4 scope boundary
-Repository guidance SHALL prohibit application-feature implementation during Exercise
-4, including database models, flight search, booking, authentication, and the seat-map
-interface.
+### Requirement: Exercise 5 scope boundary
+Repository guidance SHALL permit the Django foundation, initial database models, admin
+registration, migrations, and tests while continuing to prohibit flight-search pages,
+authentication screens, payments, the seat-map interface, and the complete booking
+workflow during Exercise 5.
 
-#### Scenario: Feature work is proposed during Exercise 4
-- **WHEN** a requested task would implement a deferred application feature
-- **THEN** the guidance identifies that work as outside the current exercise scope
+#### Scenario: Deferred feature is requested
+- **WHEN** a requested task would add a deferred user-facing feature
+- **THEN** the guidance identifies that work as outside the Exercise 5 scope
 
 ### Requirement: Domain constraints remain documented
-Guidance SHALL retain the planned `City`, `Airline`, `Flight`, `Seat`, `User`, and
-`Booking` entities, guest and registered bookings, and server-side prevention of
-duplicate seat bookings as future implementation constraints rather than current
-features.
+Guidance SHALL identify `City`, `Airline`, `Flight`, `Seat`, Django's built-in
+authentication user, and `Booking` as implemented schema entities. It SHALL document
+guest and registered-user bookings and database-backed prevention of duplicate seat
+bookings as implemented invariants.
 
-#### Scenario: Agent reviews future booking requirements
-- **WHEN** an agent reads the project documentation
-- **THEN** it can distinguish planned domain behavior from functionality already present
+#### Scenario: Agent reviews booking requirements
+- **WHEN** an agent reads project documentation
+- **THEN** it distinguishes implemented schema guarantees from deferred user-facing
+  booking functionality
 
 ### Requirement: Repository hygiene
 Guidance and Git exclusions SHALL cover tokens, passwords, `.env` files, virtual
