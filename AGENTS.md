@@ -5,7 +5,8 @@
 SkyBook is a Web Engineering course project: a simple airline ticket reservation
 system built with Python 3.12, Django, and SQLite. Exercise 5 replaces the earlier
 Flask scaffold with Django; keep the application Django-based and do not introduce
-another web framework.
+another web framework. Exercise 8 adds proper Django forms for validated flight
+search and simple guest-booking creation.
 
 The Django project package belongs in `skybook/`, the main application in
 `reservations/`, tests in `tests/`, and the management entry point is `manage.py`.
@@ -13,10 +14,12 @@ Configuration lives in `pyproject.toml`; CI runs from
 `.github/workflows/ci.yml`. Before meaningful implementation, read the relevant
 documents under `openspec/` and follow their requirements. Repository-local skills
 support exploring, proposing, applying, updating, syncing, and archiving OpenSpec
-changes. Exercise 5 permits the initial Django project, database schema, admin
-registration, migrations, and model tests. Flight-search pages, authentication
-screens, payments, the seat-map interface, and the complete booking workflow remain
-out of scope.
+changes. Exercise 8 permits the existing Django foundation, database schema, admin
+registration, migrations, tests, basic views, GET flight search, and CSRF-protected
+POST guest booking for an existing seat. Authentication screens, payments, the
+interactive seat-map interface, external airline APIs, production styling, and the
+complete booking workflow remain out of scope. Do not add seat class or another
+schema field unless a later requirement genuinely requires it.
 
 ## Domain Model and Booking Rules
 
@@ -51,7 +54,8 @@ constants. Keep routes thin and place reusable logic in focused modules.
 Name tests `test_<feature>.py` and functions `test_<behavior>()`. Use Django's test
 utilities and database-aware Pytest markers where appropriate. New behavior and bug
 fixes require tests, especially guest/registered booking paths, model constraints,
-migrations, and duplicate-seat rejection. Do not reduce coverage.
+migrations, search validation, CSRF protection, retained form values, and
+duplicate-seat rejection. Do not reduce coverage.
 
 ## Commits and Pull Requests
 

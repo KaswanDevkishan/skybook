@@ -5,6 +5,24 @@
 {% block content %}
 <h2>Flights</h2>
 
+<form method="get" action="{% url 'reservations:flight_list' %}">
+    {% if form.non_field_errors %}
+        <div>
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    {% for field in form %}
+        <div>
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+        </div>
+    {% endfor %}
+
+    <button type="submit">Search</button>
+</form>
+
 <ul>
     {% for flight in flights %}
         <li>

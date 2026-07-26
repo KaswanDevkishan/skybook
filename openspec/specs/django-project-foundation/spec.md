@@ -3,7 +3,7 @@
 ## Purpose
 
 Define SkyBook's runnable Django foundation, SQLite development environment, admin
-integration, quality workflow, and Exercise 5 feature boundary.
+integration, quality workflow, and current course-exercise feature boundary.
 
 ## Requirements
 
@@ -47,21 +47,27 @@ and Django migration-check commands that work with the generated Django structur
   against the Django project
 
 ### Requirement: Deferred product features
-The initial Django project SHALL provide only its foundation, administrative model
-access, reservation schema, tests, and the explicitly bounded basic home, flight-list,
-flight-detail, placeholder booking, and health views. It SHALL NOT provide flight
-search or filtering, a seat-map interface, authentication pages, payment features,
-booking persistence through the placeholder form, or a complete booking workflow.
+The Django course project SHALL provide its foundation, administrative model access,
+reservation schema, tests, basic public views, and the explicitly bounded Exercise 8
+flight-search and guest booking forms. Exercise 8 SHALL permit validated GET
+filtering by origin, destination, and departure date plus CSRF-protected POST
+creation of a guest booking for an existing available seat. It SHALL NOT provide
+seat-class search without model support, authentication screens, payments, an
+interactive seat map, external airline APIs, production styling, or a complete
+multi-step booking workflow.
 
-#### Scenario: Initial application scope is reviewed
-- **WHEN** a contributor inspects the routes, templates, and application services
-- **THEN** the application contains only the permitted foundation, schema,
-  administration, test behavior, and basic HTTP views
+#### Scenario: Exercise 8 application scope is reviewed
+- **WHEN** a contributor inspects the routes, templates, forms, and application
+  services
+- **THEN** the application contains the permitted foundation, schema, basic views,
+  validated flight search, and simple guest booking behavior without the deferred
+  features
 
-#### Scenario: Visitor submits the placeholder booking form
-- **WHEN** valid passenger placeholder data is submitted
-- **THEN** the application redirects without selecting a flight or seat and without
-  creating a booking
+#### Scenario: Visitor submits the booking form
+- **WHEN** valid guest and available-seat data is submitted with POST and CSRF
+  protection
+- **THEN** the application creates one guest booking and redirects without starting
+  a payment, authentication, seat-map, or multi-step workflow
 
 ### Requirement: Obsolete Flask runtime removal
 The repository SHALL NOT retain Flask as a runtime dependency or expose the obsolete

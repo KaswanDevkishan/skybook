@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Define SkyBook's basic public HTTP views, URL contracts, placeholder booking
-submission behavior, and contributor-facing endpoint documentation.
+Define SkyBook's basic public HTTP views, URL contracts, validated search and booking
+behavior, and contributor-facing endpoint documentation.
 
 ## Requirements
 
@@ -32,14 +32,25 @@ routes.
   links to `/flights/` and `/booking/new/`
 
 ### Requirement: Ordered flight list
-The `flight_list` view SHALL accept GET requests at `/flights/`, query all `Flight`
-objects ordered by ascending `departure_time`, render `reservations/flight_list.html`,
-and expose the result as the `flights` template context value.
+The `flight_list` view SHALL accept GET requests at `/flights/`, render a Django
+flight-search form in `reservations/flight_list.html`, and expose the result as the
+`flights` template context value. Without query parameters it SHALL query all
+`Flight` objects ordered by ascending `departure_time`. With valid query parameters
+it SHALL expose only flights matching the validated origin, destination, and
+departure date in that order. With invalid submitted query parameters it SHALL
+render visible form errors and no partially filtered result set.
 
-#### Scenario: Visitor lists flights
-- **WHEN** a visitor sends GET `/flights/` and flights have different departure times
+#### Scenario: Visitor lists flights without searching
+- **WHEN** a visitor sends GET `/flights/` without query parameters and flights have
+  different departure times
 - **THEN** the response has status 200, uses `reservations/flight_list.html`, and its
-  `flights` context contains those flights in ascending departure-time order
+  `flights` context contains all flights in ascending departure-time order
+
+#### Scenario: Visitor searches flights
+- **WHEN** a visitor sends GET `/flights/` with a valid origin, destination, and
+  departure date
+- **THEN** the response has status 200 and its `flights` context contains only
+  matching flights in ascending departure-time order
 
 #### Scenario: No flights exist
 - **WHEN** a visitor sends GET `/flights/` while no flights exist
@@ -63,30 +74,34 @@ route, departure time, and arrival time.
 
 ### Requirement: Placeholder booking form
 The `booking_new` view SHALL accept GET requests at `/booking/new/` and render
-`reservations/booking_form.html` with a CSRF-protected HTML form containing
-`passenger_name` and `passenger_email` fields that submits by POST to the named
-booking-submission route.
+`reservations/booking_form.html` with an unbound Django booking form containing
+required `seat`, `passenger_name`, and `passenger_email` fields. The HTML form SHALL
+submit by POST to the named booking-submission route and SHALL include CSRF
+protection.
 
 #### Scenario: Visitor opens the booking form
 - **WHEN** a visitor sends GET `/booking/new/`
 - **THEN** the response has status 200, uses `reservations/booking_form.html`, and
-  contains the two required passenger input field names
+  contains the three required booking field names and a CSRF token
 
 ### Requirement: Placeholder booking submission
-The `booking_submit` view SHALL accept POST requests at `/booking/submit/`, read
-`passenger_name` and `passenger_email`, and treat either field as invalid when it is
-missing, empty, or contains only whitespace. It SHALL NOT create a `Booking` or other
-database record.
+The `booking_submit` view SHALL accept POST requests at `/booking/submit/`, bind
+`request.POST` to the Django booking form, and create a guest `Booking` only for
+valid data. Invalid data SHALL create no booking and SHALL redisplay
+`reservations/booking_form.html` with visible errors and retained submitted values.
+A successful submission SHALL redirect to the named home route.
 
-#### Scenario: Both passenger fields are valid
-- **WHEN** a visitor POSTs non-empty `passenger_name` and `passenger_email`
-- **THEN** the response redirects to the named home route with status 302 and no
-  booking is persisted
+#### Scenario: Booking fields are valid
+- **WHEN** a visitor POSTs an available existing seat, non-empty passenger name, and
+  valid passenger email
+- **THEN** the response redirects to the named home route with status 302 and
+  exactly one guest booking is persisted
 
-#### Scenario: A passenger field is invalid
-- **WHEN** a visitor POSTs with either passenger field missing, empty, or whitespace
-- **THEN** the response has status 400, uses `reservations/booking_form.html`, reports
-  validation errors in template context, and retains submitted values
+#### Scenario: A booking field is invalid
+- **WHEN** a visitor POSTs a missing, malformed, unknown, or unavailable booking
+  value
+- **THEN** the response has status 200, uses `reservations/booking_form.html`,
+  reports visible form errors, retains submitted values, and persists no booking
 
 #### Scenario: Submission endpoint receives an unsupported method
 - **WHEN** a caller requests `/booking/submit/` with a method other than POST
@@ -102,10 +117,13 @@ plain-text response suitable for checking that the Django application is running
   health response body
 
 ### Requirement: Public route documentation
-Contributor documentation SHALL describe each basic endpoint's URL, method, path
-arguments, form fields, return behavior, status codes, and redirects, and SHALL state
-that placeholder submission does not create a booking.
+Contributor documentation SHALL describe each public endpoint's URL, method, path
+arguments, form fields, validation rules, return behavior, status codes, persistence
+behavior, and redirects. It SHALL document that an empty flight search shows all
+flights, that seat class is omitted because the model does not support it, and that
+successful booking submission creates a guest booking.
 
 #### Scenario: Contributor reviews the HTTP contract
 - **WHEN** a contributor reads `README.md`
-- **THEN** the six endpoints and their request and response contracts are documented
+- **THEN** the public endpoints and the Exercise 8 search and booking form contracts
+  are documented

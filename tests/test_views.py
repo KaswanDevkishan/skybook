@@ -1,10 +1,13 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
+from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
-from reservations.models import Airline, Booking, City, Flight
+from reservations.forms import BookingForm
+from reservations.models import Airline, Booking, City, Flight, Seat
 
 
 def assert_template_used(response, template_name):
@@ -28,6 +31,15 @@ def flight_factory(db):
         )
 
     return create_flight
+
+
+@pytest.fixture
+def seat(db, flight_factory):
+    flight = flight_factory(
+        flight_number="201",
+        departure_time=timezone.now() + timedelta(days=1),
+    )
+    return Seat.objects.create(flight=flight, seat_number="1A")
 
 
 @pytest.mark.parametrize(
@@ -90,6 +102,126 @@ def test_flight_list_orders_flights_by_departure_time(client, flight_factory):
 
 
 @pytest.mark.django_db
+def test_flight_list_renders_unbound_search_form(client):
+    response = client.get(reverse("reservations:flight_list"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert not response.context["form"].is_bound
+    assert 'name="origin"' in content
+    assert 'name="destination"' in content
+    assert 'name="departure_date"' in content
+    assert 'method="get"' in content
+
+
+@pytest.mark.django_db
+def test_flight_list_filters_valid_get_query_and_orders_results(client):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+    other_destination = City.objects.create(name="Sapporo", code="SPK")
+    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
+    departure_date = timezone.localdate() + timedelta(days=2)
+    start = timezone.make_aware(
+        timezone.datetime.combine(departure_date, timezone.datetime.min.time())
+    )
+
+    later = Flight.objects.create(
+        airline=airline,
+        flight_number="102",
+        origin=origin,
+        destination=destination,
+        departure_time=start + timedelta(hours=12),
+        arrival_time=start + timedelta(hours=13),
+    )
+    earlier = Flight.objects.create(
+        airline=airline,
+        flight_number="101",
+        origin=origin,
+        destination=destination,
+        departure_time=start + timedelta(hours=8),
+        arrival_time=start + timedelta(hours=9),
+    )
+    Flight.objects.create(
+        airline=airline,
+        flight_number="103",
+        origin=origin,
+        destination=other_destination,
+        departure_time=start + timedelta(hours=7),
+        arrival_time=start + timedelta(hours=8),
+    )
+
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": origin.pk,
+            "destination": destination.pk,
+            "departure_date": departure_date.isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.context["form"].is_valid()
+    assert list(response.context["flights"]) == [earlier, later]
+
+
+@pytest.mark.django_db
+def test_flight_list_rejects_same_city_and_retains_values(client):
+    city = City.objects.create(name="Tokyo", code="TYO")
+
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": city.pk,
+            "destination": city.pk,
+            "departure_date": "2026-08-01",
+        },
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert list(response.context["flights"]) == []
+    assert "Origin and destination must be different." in content
+    assert f'<option value="{city.pk}" selected>' in content
+    assert 'value="2026-08-01"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "query",
+    [
+        {"origin": "", "destination": "", "departure_date": ""},
+        {"origin": "999", "destination": "998", "departure_date": "not-a-date"},
+    ],
+)
+def test_flight_list_invalid_input_shows_errors_and_no_results(client, query):
+    response = client.get(reverse("reservations:flight_list"), query)
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert response.context["form"].errors
+    assert list(response.context["flights"]) == []
+    assert "errorlist" in content
+
+
+@pytest.mark.django_db
+def test_flight_list_retains_invalid_date_value(client):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": origin.pk,
+            "destination": destination.pk,
+            "departure_date": "not-a-date",
+        },
+    )
+
+    assert "not-a-date" in response.content.decode()
+    assert "departure_date" in response.context["form"].errors
+
+
+@pytest.mark.django_db
 def test_flight_detail_renders_flight_fields(client, flight_factory):
     flight = flight_factory(flight_number="101", departure_time=timezone.now())
 
@@ -113,63 +245,143 @@ def test_flight_detail_returns_404_for_missing_flight(client):
     assert response.status_code == 404
 
 
-def test_booking_form_renders_fields_and_csrf_token(client):
+@pytest.mark.django_db
+def test_booking_form_renders_unbound_fields_and_csrf_token(client):
     response = client.get(reverse("reservations:booking_new"))
     content = response.content.decode()
 
     assert response.status_code == 200
     assert_template_used(response, "reservations/booking_form.html")
+    assert not response.context["form"].is_bound
+    assert 'name="seat"' in content
     assert 'name="passenger_name"' in content
     assert 'name="passenger_email"' in content
     assert 'name="csrfmiddlewaretoken"' in content
 
 
+@pytest.mark.django_db
 def test_booking_submission_without_csrf_token_is_forbidden():
     client = Client(enforce_csrf_checks=True)
 
     response = client.post(
         reverse("reservations:booking_submit"),
-        {"passenger_name": "Aiko Tanaka", "passenger_email": "aiko@example.com"},
+        {"seat": "1", "passenger_name": "Aiko Tanaka", "passenger_email": "aiko@example.com"},
     )
 
     assert response.status_code == 403
+    assert Booking.objects.count() == 0
 
 
 @pytest.mark.django_db
-def test_valid_booking_submission_redirects_without_persisting(client):
+def test_valid_booking_submission_creates_guest_booking_and_redirects(client, seat):
     response = client.post(
         reverse("reservations:booking_submit"),
-        {"passenger_name": "Aiko Tanaka", "passenger_email": "aiko@example.com"},
+        {
+            "seat": seat.pk,
+            "passenger_name": "Aiko Tanaka",
+            "passenger_email": "aiko@example.com",
+        },
     )
 
     assert response.status_code == 302
     assert response.url == reverse("reservations:home")
-    assert Booking.objects.count() == 0
+    booking = Booking.objects.get()
+    assert booking.seat == seat
+    assert booking.user is None
+    assert booking.guest_name == "Aiko Tanaka"
+    assert booking.guest_email == "aiko@example.com"
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
-    ("data", "error_field"),
+    ("data_factory", "error_field"),
     [
-        ({"passenger_email": "aiko@example.com"}, "passenger_name"),
-        ({"passenger_name": "Aiko Tanaka"}, "passenger_email"),
         (
-            {"passenger_name": "", "passenger_email": "aiko@example.com"},
+            lambda seat: {
+                "seat": seat.pk,
+                "passenger_email": "aiko@example.com",
+            },
             "passenger_name",
         ),
         (
-            {"passenger_name": "Aiko Tanaka", "passenger_email": "   "},
+            lambda seat: {
+                "seat": seat.pk,
+                "passenger_name": "Aiko Tanaka",
+                "passenger_email": "not-an-email",
+            },
             "passenger_email",
+        ),
+        (
+            lambda seat: {
+                "seat": 999999,
+                "passenger_name": "Aiko Tanaka",
+                "passenger_email": "aiko@example.com",
+            },
+            "seat",
         ),
     ],
 )
-def test_invalid_booking_submission_returns_form_with_errors(client, data, error_field):
+def test_invalid_booking_submission_retains_values_and_creates_nothing(
+    client, seat, data_factory, error_field
+):
+    data = data_factory(seat)
     response = client.post(reverse("reservations:booking_submit"), data)
+    content = response.content.decode()
 
-    assert response.status_code == 400
+    assert response.status_code == 200
     assert_template_used(response, "reservations/booking_form.html")
-    assert error_field in response.context["errors"]
-    assert response.context["passenger_name"] == data.get("passenger_name", "")
-    assert response.context["passenger_email"] == data.get("passenger_email", "")
+    assert error_field in response.context["form"].errors
+    assert data.get("passenger_name", "") in content
+    assert data.get("passenger_email", "") in content
+    assert Booking.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_booking_submission_rejects_already_booked_seat(client, seat):
+    Booking.objects.create(
+        seat=seat,
+        guest_name="Existing Passenger",
+        guest_email="existing@example.com",
+    )
+
+    response = client.post(
+        reverse("reservations:booking_submit"),
+        {
+            "seat": seat.pk,
+            "passenger_name": "Aiko Tanaka",
+            "passenger_email": "aiko@example.com",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "This seat is already booked." in response.content.decode()
+    assert Booking.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_booking_submission_handles_stale_duplicate_conflict(client, seat):
+    existing = Booking.objects.create(
+        seat=seat,
+        guest_name="Existing Passenger",
+        guest_email="existing@example.com",
+    )
+
+    with (
+        patch.object(BookingForm, "clean_seat", lambda form: form.cleaned_data["seat"]),
+        patch.object(BookingForm, "save", side_effect=IntegrityError("duplicate seat")),
+    ):
+        response = client.post(
+            reverse("reservations:booking_submit"),
+            {
+                "seat": seat.pk,
+                "passenger_name": "Aiko Tanaka",
+                "passenger_email": "aiko@example.com",
+            },
+        )
+
+    assert response.status_code == 200
+    assert "booked before your request completed" in response.content.decode()
+    assert list(Booking.objects.all()) == [existing]
 
 
 def test_booking_submission_rejects_unsupported_methods(client):
