@@ -1,0 +1,37 @@
+{% extends "reservations/base.html" %}
+{% load reservation_format %}
+
+{% block title %}Booking confirmed | SkyBook{% endblock %}
+
+{% block content %}
+<header class="page-header confirmation-header">
+    <p class="eyebrow">Booking confirmed</p>
+    <h1>Your flight is booked</h1>
+    <p>Keep this reference for your records: <strong>{{ booking.booking_reference }}</strong></p>
+</header>
+
+<section class="review-card" aria-labelledby="confirmation-heading">
+    <h2 id="confirmation-heading">Booking details</h2>
+    <dl class="review-list">
+        <div><dt>Booking reference</dt><dd>{{ booking.booking_reference }}</dd></div>
+        <div><dt>Passenger</dt><dd>{{ booking.guest_name }}</dd></div>
+        <div><dt>Email</dt><dd>{{ booking.guest_email }}</dd></div>
+        <div>
+            <dt>Flight</dt>
+            <dd>{{ flight.airline.name }} {{ flight.airline.code }}{{ flight.flight_number }}</dd>
+        </div>
+        <div><dt>Origin</dt><dd>{{ flight.origin }}</dd></div>
+        <div><dt>Destination</dt><dd>{{ flight.destination }}</dd></div>
+        <div><dt>Departure</dt><dd>{{ flight.departure_time|date:"M j, Y H:i" }}</dd></div>
+        <div><dt>Arrival</dt><dd>{{ flight.arrival_time|date:"M j, Y H:i" }}</dd></div>
+        <div><dt>Seat</dt><dd>{{ booking.seat.seat_number }}</dd></div>
+        <div><dt>Cabin</dt><dd>{{ booking.seat.get_cabin_class_display }}</dd></div>
+        <div><dt>Seat type</dt><dd>{{ booking.seat.get_seat_type_display }}</dd></div>
+        <div><dt>Base fare</dt><dd>{{ booking.base_fare|jpy }}</dd></div>
+        <div><dt>Taxes and fees</dt><dd>{{ booking.taxes_and_fees|jpy }}</dd></div>
+        <div class="price-total"><dt>Total price</dt><dd>{{ booking.total_price|jpy }}</dd></div>
+    </dl>
+</section>
+
+<p><a class="button" href="{% url 'reservations:flight_list' %}">Return to flight search</a></p>
+{% endblock %}

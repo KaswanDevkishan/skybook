@@ -3,44 +3,48 @@
 {% block title %}Flights | SkyBook{% endblock %}
 
 {% block content %}
-<header class="page-header">
-    <p class="eyebrow">Plan your journey</p>
-    <h1>Flights</h1>
-    <p>Search available routes by city and departure date.</p>
-</header>
+<section class="flight-search-hero" aria-labelledby="flight-search-title">
+    <div class="flight-search-hero__copy">
+        <p class="eyebrow">Flights without the friction</p>
+        <h1 id="flight-search-title">Where are you flying next?</h1>
+        <p>Compare available routes, transparent fares, and seats in one simple search.</p>
+    </div>
 
-<section class="panel" aria-labelledby="search-heading">
-    <h2 id="search-heading">Search flights</h2>
-
-    <form
-        method="get"
-        action="{% url 'reservations:flight_list' %}"
-        hx-get="{% url 'reservations:flight_list' %}"
-        hx-trigger="change from:#id_origin, change from:#id_destination, change from:#id_departure_date, submit"
-        hx-target="#flight-results"
-        hx-swap="innerHTML"
-        hx-indicator="#flight-search-indicator"
-    >
-        <div class="form-grid">
-            {% for field in form %}
-                <div class="form-field">
-                    {{ field.label_tag }}
-                    {{ field }}
-                    {{ field.errors }}
-                </div>
-            {% endfor %}
-        </div>
-
-        <button type="submit">Search flights</button>
-        <span
-            id="flight-search-indicator"
-            class="htmx-indicator loading-status"
-            role="status"
-            aria-live="polite"
+    <div class="search-card">
+        <h2 id="search-heading">Find your flight</h2>
+        <form
+            class="flight-search-form"
+            method="get"
+            action="{% url 'reservations:flight_list' %}"
+            hx-get="{% url 'reservations:flight_list' %}"
+            hx-trigger="change from:#id_origin, change from:#id_destination, change from:#id_departure_date, submit"
+            hx-target="#flight-results"
+            hx-swap="innerHTML"
+            hx-indicator="#flight-search-indicator"
         >
-            Updating flight results…
-        </span>
-    </form>
+            <div class="flight-search-form__fields">
+                {% for field in form %}
+                    <div class="form-field">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="flight-search-form__action">
+                <button type="submit">Search flights</button>
+                <span
+                    id="flight-search-indicator"
+                    class="htmx-indicator loading-status"
+                    role="status"
+                    aria-live="polite"
+                >
+                    Updating flight results…
+                </span>
+            </div>
+        </form>
+    </div>
 </section>
 
 <section class="results-section"

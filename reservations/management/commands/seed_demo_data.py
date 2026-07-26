@@ -23,7 +23,17 @@ FLIGHT_DATA = (
     ("WEB", "D202", "FUK", "TYO", 4, time(14, 0), timedelta(hours=1, minutes=45)),
     ("SKY", "D103", "SPK", "OSA", 6, time(10, 45), timedelta(hours=2)),
 )
-SEAT_NUMBERS = ("1A", "1B", "2A", "2B", "3A", "3B")
+SEAT_DATA = (
+    ("1A", Seat.CabinClass.BUSINESS, Seat.SeatType.WINDOW, 52000),
+    ("1B", Seat.CabinClass.BUSINESS, Seat.SeatType.MIDDLE, 48000),
+    ("1C", Seat.CabinClass.BUSINESS, Seat.SeatType.AISLE, 50000),
+    ("2A", Seat.CabinClass.ECONOMY, Seat.SeatType.WINDOW, 18000),
+    ("2B", Seat.CabinClass.ECONOMY, Seat.SeatType.MIDDLE, 15000),
+    ("2C", Seat.CabinClass.ECONOMY, Seat.SeatType.AISLE, 16500),
+    ("3A", Seat.CabinClass.ECONOMY, Seat.SeatType.WINDOW, 16000),
+    ("3B", Seat.CabinClass.ECONOMY, Seat.SeatType.MIDDLE, 13500),
+    ("3C", Seat.CabinClass.ECONOMY, Seat.SeatType.AISLE, 14500),
+)
 
 
 class Command(BaseCommand):
@@ -74,8 +84,16 @@ class Command(BaseCommand):
             seeded_flights.append(flight)
 
         for flight in seeded_flights:
-            for seat_number in SEAT_NUMBERS:
-                Seat.objects.get_or_create(flight=flight, seat_number=seat_number)
+            for seat_number, cabin_class, seat_type, price in SEAT_DATA:
+                Seat.objects.update_or_create(
+                    flight=flight,
+                    seat_number=seat_number,
+                    defaults={
+                        "cabin_class": cabin_class,
+                        "seat_type": seat_type,
+                        "price": price,
+                    },
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

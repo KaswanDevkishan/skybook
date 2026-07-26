@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from django.contrib import admin
@@ -141,6 +142,29 @@ def test_seat_number_is_unique_per_flight_and_string_identifies_flight():
     assert_integrity_error(lambda: Seat.objects.create(flight=first_flight, seat_number="12a"))
 
 
+def test_seat_choices_and_whole_yen_price_are_persisted():
+    seat = Seat.objects.create(
+        flight=make_flight(),
+        seat_number="1A",
+        cabin_class=Seat.CabinClass.BUSINESS,
+        seat_type=Seat.SeatType.WINDOW,
+        price=Decimal("52000"),
+    )
+
+    assert Seat.CabinClass.values == ["ECONOMY", "BUSINESS"]
+    assert Seat.SeatType.values == ["WINDOW", "MIDDLE", "AISLE"]
+    assert seat.get_cabin_class_display() == "Business"
+    assert seat.get_seat_type_display() == "Window"
+    assert seat.price == Decimal("52000")
+
+
+def test_seat_rejects_negative_price_during_validation():
+    seat = Seat(flight=make_flight(), seat_number="1A", price=Decimal("-1"))
+
+    with pytest.raises(ValidationError):
+        seat.full_clean()
+
+
 def test_registered_user_booking_and_string():
     user = get_user_model().objects.create_user(username="traveler", password="secret-pass")
     seat = Seat.objects.create(flight=make_flight(), seat_number="1A")
@@ -148,7 +172,9 @@ def test_registered_user_booking_and_string():
     booking = Booking.objects.create(seat=seat, user=user)
 
     assert booking.user == user
-    assert str(booking) == "SB101: HND → CTS — seat 1A booked for traveler"
+    assert str(booking) == (
+        f"{booking.booking_reference}: SB101: HND → CTS — seat 1A booked for traveler"
+    )
 
 
 def test_guest_booking_and_string():
@@ -163,7 +189,14 @@ def test_guest_booking_and_string():
     booking.save()
 
     assert booking.user is None
-    assert str(booking) == "SB101: HND → CTS — seat 1A booked for Guest Traveler"
+    assert str(booking) == (
+        f"{booking.booking_reference}: SB101: HND → CTS — seat 1A booked for Guest Traveler"
+    )
+    assert booking.booking_reference.startswith("SKY-")
+    assert booking.base_fare == Decimal("15000")
+    assert booking.taxes_and_fees == Decimal("1500")
+    assert booking.total_price == Decimal("16500")
+    assert booking.created_at is not None
 
 
 def test_database_rejects_booking_without_user_or_guest_details():

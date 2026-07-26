@@ -70,10 +70,26 @@ def test_seeded_available_seats_appear_in_booking_form(client):
     call_command("seed_demo_data")
     seat = Seat.objects.first()
 
-    response = client.get(reverse("reservations:booking_new"))
+    response = client.get(reverse("reservations:flight_booking", args=[seat.flight_id]))
 
     assert seat in response.context["form"].fields["seat"].queryset
-    assert str(seat) in response.content.decode()
+    assert seat.seat_number in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_seeded_seats_cover_cabins_types_and_varied_prices():
+    call_command("seed_demo_data")
+
+    assert set(Seat.objects.values_list("cabin_class", flat=True)) == {
+        Seat.CabinClass.ECONOMY,
+        Seat.CabinClass.BUSINESS,
+    }
+    assert set(Seat.objects.values_list("seat_type", flat=True)) == {
+        Seat.SeatType.WINDOW,
+        Seat.SeatType.MIDDLE,
+        Seat.SeatType.AISLE,
+    }
+    assert Seat.objects.values("price").distinct().count() >= 6
 
 
 @pytest.mark.django_db
@@ -86,6 +102,12 @@ def test_seed_demo_data_preserves_existing_records_and_bookings():
         guest_name="Existing Guest",
         guest_email="existing@example.com",
     )
+    booking_snapshot = (
+        booking.base_fare,
+        booking.taxes_and_fees,
+        booking.total_price,
+        booking.booking_reference,
+    )
     counts_before = {
         "cities": City.objects.count(),
         "airlines": Airline.objects.count(),
@@ -97,7 +119,14 @@ def test_seed_demo_data_preserves_existing_records_and_bookings():
     call_command("seed_demo_data")
 
     assert City.objects.get(pk=unrelated_city.pk).name == "Nagoya"
-    assert Booking.objects.get(pk=booking.pk).seat_id == seat.pk
+    preserved_booking = Booking.objects.get(pk=booking.pk)
+    assert preserved_booking.seat_id == seat.pk
+    assert (
+        preserved_booking.base_fare,
+        preserved_booking.taxes_and_fees,
+        preserved_booking.total_price,
+        preserved_booking.booking_reference,
+    ) == booking_snapshot
     assert {
         "cities": City.objects.count(),
         "airlines": Airline.objects.count(),

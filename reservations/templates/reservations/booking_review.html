@@ -1,0 +1,53 @@
+{% extends "reservations/base.html" %}
+{% load reservation_format %}
+
+{% block title %}Review booking | SkyBook{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <p class="eyebrow">Step 2 of 2</p>
+    <h1>Review and confirm</h1>
+    <p>No payment is taken. This is a simulated academic checkout.</p>
+</header>
+
+<section class="review-card" aria-labelledby="itinerary-heading">
+    <h2 id="itinerary-heading">Flight and passenger</h2>
+    <dl class="review-list">
+        <div><dt>Passenger</dt><dd>{{ form.cleaned_data.passenger_name }}</dd></div>
+        <div><dt>Email</dt><dd>{{ form.cleaned_data.passenger_email }}</dd></div>
+        <div>
+            <dt>Flight</dt>
+            <dd>{{ flight.airline.name }} {{ flight.airline.code }}{{ flight.flight_number }}</dd>
+        </div>
+        <div><dt>Route</dt><dd>{{ flight.origin }} → {{ flight.destination }}</dd></div>
+        <div><dt>Departure</dt><dd>{{ flight.departure_time|date:"M j, Y H:i" }}</dd></div>
+        <div><dt>Arrival</dt><dd>{{ flight.arrival_time|date:"M j, Y H:i" }}</dd></div>
+        <div><dt>Seat</dt><dd>{{ selected_seat.seat_number }}</dd></div>
+        <div><dt>Cabin</dt><dd>{{ selected_seat.get_cabin_class_display }}</dd></div>
+        <div><dt>Seat type</dt><dd>{{ selected_seat.get_seat_type_display }}</dd></div>
+    </dl>
+</section>
+
+<section class="review-card" aria-labelledby="price-heading">
+    <h2 id="price-heading">Price in JPY</h2>
+    <dl class="review-list price-list">
+        <div><dt>Base fare</dt><dd>{{ price.base_fare|jpy }}</dd></div>
+        <div><dt>Taxes and fees (10%)</dt><dd>{{ price.taxes_and_fees|jpy }}</dd></div>
+        <div class="price-total"><dt>Total</dt><dd>{{ price.total_price|jpy }}</dd></div>
+    </dl>
+</section>
+
+<form method="post" action="{% url 'reservations:flight_booking' flight_id=flight.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="seat" value="{{ selected_seat.id }}">
+    <input type="hidden" name="passenger_name" value="{{ form.cleaned_data.passenger_name }}">
+    <input type="hidden" name="passenger_email" value="{{ form.cleaned_data.passenger_email }}">
+    <div class="action-list">
+        <button type="submit" name="action" value="confirm">Confirm booking</button>
+        <a class="button button-secondary"
+            href="{% url 'reservations:flight_booking' flight_id=flight.id %}">
+            Change selection
+        </a>
+    </div>
+</form>
+{% endblock %}
