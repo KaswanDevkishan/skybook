@@ -1,8 +1,22 @@
+import secrets
+import string
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models.functions import Length, Trim
 from django.db.models.lookups import GreaterThan
+
+BOOKING_REFERENCE_ALPHABET = "".join(
+    character for character in string.ascii_uppercase + string.digits if character not in "0O1I"
+)
+
+
+def generate_booking_reference():
+    suffix = "".join(secrets.choice(BOOKING_REFERENCE_ALPHABET) for _ in range(8))
+    return f"SKY-{suffix}"
 
 
 class City(models.Model):
@@ -74,10 +88,39 @@ class Flight(models.Model):
             f"{self.airline.code}{self.flight_number}: {self.origin.code} → {self.destination.code}"
         )
 
+    @property
+    def duration(self):
+        return self.arrival_time - self.departure_time
+
 
 class Seat(models.Model):
+    class CabinClass(models.TextChoices):
+        ECONOMY = "ECONOMY", "Economy"
+        BUSINESS = "BUSINESS", "Business"
+
+    class SeatType(models.TextChoices):
+        WINDOW = "WINDOW", "Window"
+        MIDDLE = "MIDDLE", "Middle"
+        AISLE = "AISLE", "Aisle"
+
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE, related_name="seats")
     seat_number = models.CharField(max_length=5)
+    cabin_class = models.CharField(
+        max_length=10,
+        choices=CabinClass.choices,
+        default=CabinClass.ECONOMY,
+    )
+    seat_type = models.CharField(
+        max_length=6,
+        choices=SeatType.choices,
+        default=SeatType.AISLE,
+    )
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=Decimal("15000"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
 
     class Meta:
         ordering = ["flight", "seat_number"]
@@ -95,6 +138,10 @@ class Seat(models.Model):
     def __str__(self):
         return f"{self.flight} — seat {self.seat_number}"
 
+    @property
+    def seat_row(self):
+        return self.seat_number.rstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ") or self.seat_number
+
 
 class Booking(models.Model):
     seat = models.ForeignKey(Seat, on_delete=models.PROTECT, related_name="bookings")
@@ -107,6 +154,30 @@ class Booking(models.Model):
     )
     guest_name = models.CharField(max_length=100, blank=True)
     guest_email = models.EmailField(blank=True)
+    base_fare = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    taxes_and_fees = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    total_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    booking_reference = models.CharField(
+        max_length=12,
+        unique=True,
+        default=generate_booking_reference,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -130,6 +201,18 @@ class Booking(models.Model):
         if self.user_id is None and (not self.guest_name.strip() or not self.guest_email.strip()):
             raise ValidationError("Guest bookings require a guest name and email address.")
 
+    def save(self, *args, **kwargs):
+        # Fallback for non-service creation paths such as admin and tests;
+        # create_guest_booking is the authoritative normal booking path.
+        if self._state.adding and not any((self.base_fare, self.taxes_and_fees, self.total_price)):
+            from reservations.pricing import calculate_booking_price
+
+            price = calculate_booking_price(self.seat.price)
+            self.base_fare = price.base_fare
+            self.taxes_and_fees = price.taxes_and_fees
+            self.total_price = price.total_price
+        super().save(*args, **kwargs)
+
     def __str__(self):
         passenger = self.user.get_username() if self.user else self.guest_name
-        return f"{self.seat} booked for {passenger}"
+        return f"{self.booking_reference}: {self.seat} booked for {passenger}"

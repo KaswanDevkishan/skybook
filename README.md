@@ -1,10 +1,11 @@
 # SkyBook
 
 SkyBook is a simple airline ticket reservation system for a Web Engineering course.
-Exercise 11 prepares the existing Django application for deployment to Render while
-retaining Exercise 10's progressively enhanced HTMX flight search and the semantic,
-responsive, accessible Exercise 9 interface. SQLite remains the local-development
-database; production uses Render PostgreSQL.
+Exercise 11 prepares the Django application for Render, and the first major booking
+redesign connects flight search to seat selection, passenger details, authoritative
+JPY price review, confirmation, and a booking receipt. Existing HTMX search and the
+semantic responsive interface remain intact. SQLite is used locally; production uses
+Render PostgreSQL.
 
 The current milestone provides:
 
@@ -14,9 +15,12 @@ The current milestone provides:
 - Guest bookings through a nullable `Booking.user`
 - Database constraints for valid routes, times, scheduled flights, seats, and bookings
 - Django admin registration, migrations, model tests, and coverage
-- Basic home, searchable flight-list, flight-detail, guest-booking, and health views
+- Home, searchable flight-list, flight-detail, connected guest-booking, confirmation,
+  and health views
 - GET-based flight search with validated city and departure-date input
-- CSRF-protected guest booking with validated seat, passenger name, and email input
+- Flight-scoped, CSRF-protected guest booking with validated seat and passenger input
+- Economy and Business seats with Window, Middle, and Aisle types and varied JPY prices
+- Immutable booking-time price snapshots and unique `SKY-XXXXXXXX` references
 - Semantic page landmarks, skip navigation, logical headings, and accessible form
   feedback
 - A namespaced external stylesheet with responsive layouts and visible focus states
@@ -25,10 +29,10 @@ The current milestone provides:
 - A Render Web Service running Gunicorn with PostgreSQL and WhiteNoise static delivery
 - Idempotent course-demonstration data initialization during Render deployment
 
-Authentication screens, payments, checkout, the interactive seat-map interface,
-external airline APIs, production styling, other client-side frameworks, and the
-complete booking workflow are intentionally deferred. Search by seat class is also
-omitted because the current models do not contain a compatible seat-class field.
+Authentication screens, real payments, aircraft-shaped SVG seat maps, booking
+dashboards, cancellation, guest lookup, round trips, tracking, destination galleries,
+external airline APIs, and unrelated infrastructure remain deferred. Confirmation is
+a simulated academic checkout and never collects card data.
 
 ## Project Structure
 
@@ -62,8 +66,8 @@ skybook/
 | `City` | Named location with a unique normalized code |
 | `Airline` | Named carrier with a unique normalized code |
 | `Flight` | Airline service between distinct cities with increasing departure and arrival times |
-| `Seat` | Seat number unique within a flight |
-| `Booking` | Unique reservation for a seat, linked to either a Django user or guest contact data |
+| `Seat` | Flight-specific unique number, Economy/Business cabin, Window/Middle/Aisle type, and Decimal whole-yen JPY price |
+| `Booking` | Unique seat reservation with guest/user data, immutable price amounts, reference, and creation timestamp |
 
 The database prevents two bookings from referencing the same seat. This invariant does
 not depend on browser validation or a future seat-map interface.
@@ -74,11 +78,11 @@ All application routes use the `reservations` URL namespace.
 
 | Name | Method and URL | Arguments or fields | Response |
 | --- | --- | --- | --- |
-| `reservations:home` | `GET /` | None | Renders the home page with links to the flight list and booking form; status 200 |
+| `reservations:home` | `GET /` | None | Renders the home page and flight-search entry; status 200 |
 | `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date`; optional `HX-Request: true` header | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and departure date in that order. Invalid input renders visible errors and no partially filtered results. Ordinary requests return the complete page; requests with `HX-Request: true` return only the `flight-results` partial; status 200 |
 | `reservations:flight_detail` | `GET /flights/<int:flight_id>/` | `flight_id`: database ID of a flight | Renders the airline, route, departure time, and arrival time; status 200, or 404 when the flight does not exist |
-| `reservations:booking_new` | `GET /booking/new/` | None | Renders an unbound, CSRF-protected booking form; status 200 |
-| `reservations:booking_submit` | `POST /booking/submit/` | Form fields `seat`, `passenger_name`, and `passenger_email` | Creates a guest booking and redirects to `/` with status 302 when valid. Invalid or duplicate-seat input re-renders the bound form with visible errors and retained values without creating a booking; status 200. Missing CSRF returns 403, and unsupported methods return 405 |
+| `reservations:flight_booking` | `GET, POST /flights/<int:flight_id>/book/` | URL `flight_id`; POST `seat`, `passenger_name`, `passenger_email`, and `action` | GET shows only the flight's seats. Review displays authoritative prices without persistence. Confirm revalidates and atomically creates a guest booking, then redirects to its receipt. Invalid flights return 404; invalid or stale seats produce visible errors |
+| `reservations:booking_confirmation` | `GET /bookings/<str:booking_reference>/confirmation/` | URL `booking_reference` | Displays the immutable booking receipt; unknown references return 404 |
 | `reservations:health` | `GET /health/` | None | Returns a non-empty plain-text health response; status 200 |
 
 The flight-search form requires all three fields, resolves origin and destination to
@@ -90,12 +94,19 @@ current values to the same route and replaces only the contents of the stable
 the document across updates. Without HTMX, the submit button performs the same
 complete-page GET as before.
 
-The booking form requires all three fields, uses Django email validation, resolves the
-seat to an existing record, and rejects a seat that is already booked. Successful
-submissions create a guest `Booking` by mapping `passenger_name` and `passenger_email`
-to `guest_name` and `guest_email`; `Booking.user` remains null. Form validation
-improves error reporting, while the existing database uniqueness constraint remains
-the final protection against stale or concurrent duplicate-seat requests.
+Booking starts from a specific flight result; there is no generic all-flight form.
+Only that flight's available seats pass validation. Review and confirmation reject
+unknown, cross-flight, or booked identifiers. Final creation runs in a transaction,
+while the existing unique-seat constraint remains the final stale/concurrent
+double-booking protection. Guest details map to `guest_name` and `guest_email`, and
+`Booking.user` remains null.
+
+All amounts are Decimal whole-yen JPY values. A seat's price is the base fare. Taxes
+and fees are 10% rounded to the nearest whole yen with `ROUND_HALF_UP`; total is their
+sum. The server calculates from the persisted seat and ignores submitted prices.
+Confirmed amounts are copied onto `Booking`, so later seat-price changes cannot alter
+history. References use a random uppercase `SKY-XXXXXXXX` format and a database unique
+constraint.
 
 ## Interface and Accessibility
 
@@ -110,9 +121,10 @@ current-page navigation state.
 
 Page templates use logical headings and semantic sections, articles, forms, and detail
 lists. Django continues to render visible labels associated with every form control.
-Invalid bound forms retain submitted values and field-level errors while adding an
-announced validation summary; errors use text, borders, and color rather than color
-alone.
+Invalid forms retain submitted values and field-level errors with an announced
+summary. Booking seats use native radio controls grouped by cabin and row, explicit
+Available/Unavailable text, visible focus, and responsive cards; state never depends
+on color alone.
 
 Flight search uses a textual “Updating flight results…” status while enhanced requests
 are active. The complete page owns a stable polite, atomic live-region wrapper, and
@@ -146,15 +158,23 @@ Apply migrations:
 uv run python manage.py migrate
 ```
 
-Populate connected demonstration cities, airlines, future flights, and seats:
+Migration `0003` backfills pre-redesign seats with safe classifications and a JPY
+15,000 fallback fare, then snapshots existing bookings at that fare with unique
+references before enforcing final constraints. It never deletes or disconnects
+reservations. Prefer a forward corrective migration after production use; reversing
+the schema after new bookings exist requires an export and coordinated application
+rollback and must never drop booking data casually.
+
+Populate connected demonstration cities, airlines, future flights, and classified,
+varied-price seats:
 
 ```bash
 uv run python manage.py seed_demo_data
 ```
 
-The command is safe to repeat. It creates missing demo records while preserving every
-existing seeded flight's departure and arrival times. Existing bookings are therefore
-never rescheduled, and the command does not delete bookings or unrelated data.
+The command is safe to repeat. It creates stable seats only when missing and preserves
+existing seat records, seeded flight times, bookings, and unrelated data. It never
+reschedules a booked flight or rewrites historical booking amounts.
 
 Start the development server:
 
@@ -326,10 +346,10 @@ uv run python manage.py collectstatic --noinput
 uv run gunicorn skybook.wsgi:application --check-config
 ```
 
-Validate the active Exercise 11 OpenSpec change:
+Validate the active booking-redesign OpenSpec change:
 
 ```bash
-openspec validate deploy-skybook-to-render --strict
+openspec validate redesign-connected-booking-flow --strict
 ```
 
 CI runs dependency installation, Ruff formatting and lint checks, and Pytest.

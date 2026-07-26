@@ -12,6 +12,9 @@ Exercise 10 adds one server-driven HTMX interaction that updates flight-search r
 without reloading the complete page. Exercise 11 prepares the application for a Render
 Web Service using Gunicorn, Render PostgreSQL, WhiteNoise, and environment-based
 production configuration while preserving SQLite development.
+The first major booking redesign adds classified and priced seats, enriched flight
+results, flight-scoped seat selection, passenger details, authoritative JPY review,
+atomic guest confirmation, and a booking receipt.
 
 The Django project package belongs in `skybook/`, the main application in
 `reservations/`, tests in `tests/`, and the management entry point is `manage.py`.
@@ -27,13 +30,12 @@ a reusable flight-results partial, header-selected partial responses, accessible
 loading feedback, and focused tests and documentation. Exercise 11 additionally permits
 Gunicorn, a Python 3.12 PostgreSQL driver, database-URL parsing, WhiteNoise static
 delivery, Render Blueprint configuration, secure proxy and cookie settings, production
-settings tests, and deployment documentation. Preserve ordinary full-page GET search,
-validation, booking, migrations, health checks, and duplicate-seat behavior.
-Authentication screens, payments, checkout, the interactive seat-map interface,
-external airline APIs, production styling, unrelated UI changes, other client-side
-frameworks, Docker unless genuinely required, Redis, Celery, workers, file uploads, and
-the complete booking workflow remain out of scope. Do not add seat class or another
-schema field unless a later requirement genuinely requires it.
+settings tests, and deployment documentation. Preserve ordinary full-page and HTMX
+search, the connected booking flow, migrations, health checks, and duplicate-seat
+behavior. Authentication screens, real payments, aircraft-shaped SVG seat maps,
+booking dashboards, cancellation, guest lookup, round trips, external airline APIs,
+unrelated UI changes, other client-side frameworks, Docker unless genuinely required,
+Redis, Celery, workers, and file uploads remain out of scope.
 
 ## Domain Model and Booking Rules
 
@@ -43,6 +45,10 @@ Support both guest and registered-user bookings by allowing `Booking.user` to be
 null. Treat seat availability as a server-side invariant: database constraints must
 prevent two bookings for the same flight seat, even with stale or concurrent
 requests. Never rely only on browser validation or a future seat-map UI.
+Seats use Economy/Business and Window/Middle/Aisle choices with whole-yen Decimal
+prices. Confirmed bookings store immutable base fare, taxes and fees, total, reference,
+and creation time. Calculate the current 10% fee authoritatively on the server and
+round half-up to whole yen.
 
 ## Setup, Development, and Quality Commands
 

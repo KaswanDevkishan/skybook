@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from django.utils import timezone
@@ -7,19 +8,18 @@ from reservations.models import Airline, Booking, City, Flight, Seat
 
 
 @pytest.fixture
-def cities(db):
-    return (
-        City.objects.create(name="Tokyo", code="TYO"),
-        City.objects.create(name="Osaka", code="OSA"),
-    )
+def route(db):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
+    return origin, destination, airline
 
 
 @pytest.fixture
-def seat(db, cities):
-    origin, destination = cities
-    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
+def flight(route):
+    origin, destination, airline = route
     departure = timezone.now() + timedelta(days=1)
-    flight = Flight.objects.create(
+    return Flight.objects.create(
         airline=airline,
         flight_number="101",
         origin=origin,
@@ -27,11 +27,21 @@ def seat(db, cities):
         departure_time=departure,
         arrival_time=departure + timedelta(hours=1),
     )
-    return Seat.objects.create(flight=flight, seat_number="1A")
 
 
-def test_flight_search_form_accepts_distinct_cities_and_valid_date(cities):
-    origin, destination = cities
+@pytest.fixture
+def seat(flight):
+    return Seat.objects.create(
+        flight=flight,
+        seat_number="1A",
+        cabin_class=Seat.CabinClass.BUSINESS,
+        seat_type=Seat.SeatType.WINDOW,
+        price=Decimal("50000"),
+    )
+
+
+def test_flight_search_form_accepts_distinct_cities_and_valid_date(route):
+    origin, destination, _ = route
     form = FlightSearchForm(
         {
             "origin": origin.pk,
@@ -43,8 +53,8 @@ def test_flight_search_form_accepts_distinct_cities_and_valid_date(cities):
     assert form.is_valid()
 
 
-def test_flight_search_form_rejects_same_origin_and_destination(cities):
-    origin, _ = cities
+def test_flight_search_form_rejects_same_origin_and_destination(route):
+    origin, _, _ = route
     form = FlightSearchForm(
         {
             "origin": origin.pk,
@@ -57,62 +67,78 @@ def test_flight_search_form_rejects_same_origin_and_destination(cities):
     assert "Origin and destination must be different." in form.non_field_errors()
 
 
-def test_booking_form_accepts_valid_email(seat):
+def test_booking_form_is_scoped_to_available_seats_on_selected_flight(flight, seat):
+    other_flight = Flight.objects.create(
+        airline=flight.airline,
+        flight_number="102",
+        origin=flight.origin,
+        destination=flight.destination,
+        departure_time=flight.departure_time + timedelta(days=1),
+        arrival_time=flight.arrival_time + timedelta(days=1),
+    )
+    other_seat = Seat.objects.create(flight=other_flight, seat_number="1A")
+    booked_seat = Seat.objects.create(flight=flight, seat_number="1B")
+    Booking.objects.create(
+        seat=booked_seat,
+        guest_name="Booked Guest",
+        guest_email="booked@example.com",
+    )
+
+    form = BookingForm(flight=flight)
+
+    assert list(form.fields["seat"].queryset) == [seat]
+    assert other_seat not in form.fields["seat"].queryset
+    assert booked_seat not in form.fields["seat"].queryset
+
+
+def test_booking_form_accepts_valid_passenger_and_scoped_seat(flight, seat):
     form = BookingForm(
         {
             "seat": seat.pk,
-            "passenger_name": "Aiko Tanaka",
+            "passenger_name": "  Aiko Tanaka  ",
             "passenger_email": "aiko@example.com",
-        }
+        },
+        flight=flight,
     )
 
     assert form.is_valid()
+    assert form.cleaned_data["passenger_name"] == "Aiko Tanaka"
 
 
-def test_booking_form_rejects_invalid_email(seat):
+def test_booking_form_rejects_invalid_email(flight, seat):
     form = BookingForm(
         {
             "seat": seat.pk,
             "passenger_name": "Aiko Tanaka",
             "passenger_email": "not-an-email",
-        }
+        },
+        flight=flight,
     )
 
     assert not form.is_valid()
     assert "passenger_email" in form.errors
 
 
-def test_booking_form_rejects_already_booked_seat(seat):
-    Booking.objects.create(
-        seat=seat,
-        guest_name="Existing Passenger",
-        guest_email="existing@example.com",
+def test_booking_form_rejects_cross_flight_injection(flight, route):
+    origin, destination, airline = route
+    departure = timezone.now() + timedelta(days=3)
+    other_flight = Flight.objects.create(
+        airline=airline,
+        flight_number="999",
+        origin=origin,
+        destination=destination,
+        departure_time=departure,
+        arrival_time=departure + timedelta(hours=1),
     )
+    other_seat = Seat.objects.create(flight=other_flight, seat_number="9A")
     form = BookingForm(
         {
-            "seat": seat.pk,
+            "seat": other_seat.pk,
             "passenger_name": "Aiko Tanaka",
             "passenger_email": "aiko@example.com",
-        }
+        },
+        flight=flight,
     )
 
     assert not form.is_valid()
-    assert "This seat is already booked." in form.errors["seat"]
-
-
-def test_booking_form_save_maps_passenger_fields_to_guest_fields(seat):
-    form = BookingForm(
-        {
-            "seat": seat.pk,
-            "passenger_name": "Aiko Tanaka",
-            "passenger_email": "aiko@example.com",
-        }
-    )
-
-    assert form.is_valid()
-    booking = form.save()
-
-    assert booking.seat == seat
-    assert booking.user is None
-    assert booking.guest_name == "Aiko Tanaka"
-    assert booking.guest_email == "aiko@example.com"
+    assert "Select an available seat for this flight." in form.errors["seat"]

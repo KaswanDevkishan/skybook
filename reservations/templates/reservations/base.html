@@ -18,26 +18,16 @@
 
     <header class="site-header">
         <div class="container header-layout">
-            <a class="site-name" href="{% url 'reservations:home' %}">SkyBook</a>
+            <a class="site-name" href="{% url 'reservations:home' %}">
+                <span>SkyBook</span>
+            </a>
 
             <nav aria-label="Primary navigation">
                 <ul class="nav-list">
                     <li>
-                        <a href="{% url 'reservations:home' %}"
-                            {% if request.resolver_match.url_name == "home" %}aria-current="page"{% endif %}>
-                            Home
-                        </a>
-                    </li>
-                    <li>
                         <a href="{% url 'reservations:flight_list' %}"
-                            {% if request.resolver_match.url_name == "flight_list" or request.resolver_match.url_name == "flight_detail" %}aria-current="page"{% endif %}>
+                            {% if request.resolver_match.url_name == "flight_list" or request.resolver_match.url_name == "flight_detail" or request.resolver_match.url_name == "flight_booking" %}aria-current="page"{% endif %}>
                             Flights
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'reservations:booking_new' %}"
-                            {% if request.resolver_match.url_name == "booking_new" or request.resolver_match.url_name == "booking_submit" %}aria-current="page"{% endif %}>
-                            Book a Flight
                         </a>
                     </li>
                 </ul>
@@ -45,7 +35,7 @@
         </div>
     </header>
 
-    <main id="main-content" class="container main-content" tabindex="-1">
+    <main id="main-content" class="container container--wide main-content" tabindex="-1">
         {% if messages %}
             <section class="messages" aria-label="Notifications">
                 {% for message in messages %}
@@ -63,5 +53,6 @@
             <p>SkyBook Web Engineering Project</p>
         </div>
     </footer>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from reservations.models import Booking, City, Seat
+from reservations.models import City, Seat
 
 
 class FlightSearchForm(forms.Form):
@@ -21,22 +21,24 @@ class FlightSearchForm(forms.Form):
 
 
 class BookingForm(forms.Form):
-    seat = forms.ModelChoiceField(queryset=Seat.objects.all())
+    seat = forms.ModelChoiceField(
+        queryset=Seat.objects.none(),
+        widget=forms.RadioSelect,
+        error_messages={"invalid_choice": "Select an available seat for this flight."},
+    )
     passenger_name = forms.CharField(max_length=100)
     passenger_email = forms.EmailField()
 
-    def clean_seat(self):
-        seat = self.cleaned_data["seat"]
-        if Booking.objects.filter(seat=seat).exists():
-            raise ValidationError("This seat is already booked.")
-        return seat
+    def __init__(self, *args, flight, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.flight = flight
+        self.fields["seat"].queryset = Seat.objects.filter(
+            flight=flight,
+            bookings__isnull=True,
+        ).order_by("cabin_class", "seat_number")
 
-    def save(self):
-        if not self.is_valid():
-            raise ValueError("Cannot save an invalid booking form.")
-
-        return Booking.objects.create(
-            seat=self.cleaned_data["seat"],
-            guest_name=self.cleaned_data["passenger_name"],
-            guest_email=self.cleaned_data["passenger_email"],
-        )
+    def clean_passenger_name(self):
+        passenger_name = self.cleaned_data["passenger_name"].strip()
+        if not passenger_name:
+            raise ValidationError("Enter the passenger's name.")
+        return passenger_name

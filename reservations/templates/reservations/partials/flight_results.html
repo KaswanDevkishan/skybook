@@ -1,4 +1,11 @@
-<h2 id="results-heading">Available flights</h2>
+{% load reservation_format %}
+<div class="results-heading">
+    <div>
+        <p class="eyebrow">Your options</p>
+        <h2 id="results-heading">Available flights</h2>
+    </div>
+    {% if flights %}<p>Choose a flight to see its available seats.</p>{% endif %}
+</div>
 
 {% if form.errors %}
     <div class="error-summary" role="alert">
@@ -12,16 +19,76 @@
 {% endif %}
 
 {% if flights %}
-    <ul class="flight-list">
+    <ul class="flight-list flight-list--responsive">
         {% for flight in flights %}
             <li>
                 <article class="flight-card">
-                    <h3>
-                        <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
-                            {{ flight }}
+                    <div class="flight-card__heading">
+                        <div>
+                            <p class="flight-card__airline">{{ flight.airline.name }}</p>
+                            <h3>
+                                <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
+                                    {{ flight.airline.code }}{{ flight.flight_number }}
+                                </a>
+                            </h3>
+                        </div>
+                        <span class="flight-card__status">Nonstop</span>
+                    </div>
+
+                    <div class="flight-card__journey" aria-label="{{ flight.origin.code }} to {{ flight.destination.code }}">
+                        <div class="flight-card__airport">
+                            <strong>{{ flight.origin.code }}</strong>
+                            <time datetime="{{ flight.departure_time|date:'c' }}">
+                                {{ flight.departure_time|date:"H:i" }}
+                            </time>
+                            <span>{{ flight.departure_time|date:"M j" }}</span>
+                        </div>
+                        <div class="flight-card__route-line">
+                            <span>{{ flight.duration|duration_hm }}</span>
+                            <i aria-hidden="true"></i>
+                        </div>
+                        <div class="flight-card__airport flight-card__airport--arrival">
+                            <strong>{{ flight.destination.code }}</strong>
+                            <time datetime="{{ flight.arrival_time|date:'c' }}">
+                                {{ flight.arrival_time|date:"H:i" }}
+                            </time>
+                            <span>{{ flight.arrival_time|date:"M j" }}</span>
+                        </div>
+                    </div>
+
+                    <dl class="flight-card__details">
+                        <div>
+                            <dt>Seats remaining</dt>
+                            <dd>{{ flight.available_seat_count }}</dd>
+                        </div>
+                        <div>
+                            <dt>Cabins</dt>
+                            <dd>
+                                {% if flight.business_available %}Business{% endif %}
+                                {% if flight.business_available and flight.economy_available %}, {% endif %}
+                                {% if flight.economy_available %}Economy{% endif %}
+                                {% if not flight.business_available and not flight.economy_available %}None{% endif %}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div class="flight-card__footer">
+                        <p class="flight-card__fare">
+                            {% if flight.lowest_available_price %}
+                                <span>From</span>
+                                <strong>{{ flight.lowest_available_price|jpy }}</strong>
+                            {% else %}
+                                <strong>Sold out</strong>
+                            {% endif %}
+                        </p>
+                    {% if flight.available_seat_count %}
+                        <a class="button flight-card__cta" href="{% url 'reservations:flight_booking' flight_id=flight.id %}">
+                            View seats
                         </a>
-                    </h3>
-                    <p><strong>Departure:</strong> {{ flight.departure_time }}</p>
+                    {% else %}
+                        <p class="sold-out"><strong>Sold out — no seats available</strong></p>
+                    {% endif %}
+                    </div>
                 </article>
             </li>
         {% endfor %}

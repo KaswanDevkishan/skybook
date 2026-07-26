@@ -1,39 +1,193 @@
 {% extends "reservations/base.html" %}
+{% load reservation_format static %}
 
-{% block title %}Booking Form | SkyBook{% endblock %}
+{% block title %}Choose a seat | SkyBook{% endblock %}
 
 {% block content %}
-<header class="page-header">
-    <p class="eyebrow">Guest reservation</p>
-    <h1>Booking form</h1>
-    <p>Select an available seat and enter the passenger details.</p>
+<header class="page-header booking-header">
+    <p class="eyebrow">Step 1 of 2</p>
+    <h1>Choose your seat</h1>
+    <p>
+        {{ flight.airline.name }} {{ flight.airline.code }}{{ flight.flight_number }} ·
+        {{ flight.origin.code }} → {{ flight.destination.code }} ·
+        {{ flight.departure_time|date:"M j, Y H:i" }}
+    </p>
 </header>
 
-<section class="panel" aria-labelledby="passenger-heading">
-    <h2 id="passenger-heading">Passenger and seat details</h2>
+<form method="post" action="{% url 'reservations:flight_booking' flight_id=flight.id %}"
+    class="booking-flow" data-seat-map-form>
+    {% csrf_token %}
 
-    <form method="post" action="{% url 'reservations:booking_submit' %}">
-        {% csrf_token %}
-
-        {% if form.errors %}
-            <div class="error-summary" role="alert">
-                <p><strong>There was a problem with your booking.</strong></p>
-                <p>Please review the highlighted fields below.</p>
-                {{ form.non_field_errors }}
-            </div>
-        {% endif %}
-
-        <div class="form-grid">
-            {% for field in form %}
-                <div class="form-field">
-                    {{ field.label_tag }}
-                    {{ field }}
-                    {{ field.errors }}
-                </div>
-            {% endfor %}
+    {% if form.errors %}
+        <div class="error-summary" role="alert" tabindex="-1">
+            <p><strong>There was a problem with your booking details.</strong></p>
+            {{ form.non_field_errors }}
+            {{ form.seat.errors }}
+            {{ form.passenger_name.errors }}
+            {{ form.passenger_email.errors }}
         </div>
+    {% endif %}
 
-        <button type="submit">Submit booking</button>
-    </form>
-</section>
+    <div class="seat-legend" aria-label="Seat map legend">
+        <span><i class="legend-swatch legend-swatch--available" aria-hidden="true"></i>Available</span>
+        <span><i class="legend-swatch legend-swatch--selected" aria-hidden="true"></i>Selected</span>
+        <span><i class="legend-swatch legend-swatch--unavailable" aria-hidden="true"></i>Unavailable</span>
+        <span><i class="legend-swatch legend-swatch--business" aria-hidden="true"></i>Business</span>
+        <span><i class="legend-swatch legend-swatch--economy" aria-hidden="true"></i>Economy</span>
+    </div>
+
+    <div class="booking-layout booking-layout--seat-map">
+        <fieldset class="seat-selector" aria-describedby="seat-help">
+            <legend class="visually-hidden">Select one available seat</legend>
+            <p id="seat-help" class="seat-help">
+                Select an available seat. Booked seats remain visible for orientation.
+                Prices shown here are estimates and are recalculated by the server.
+            </p>
+
+            <div class="seat-map-scroll" tabindex="0" aria-label="Scrollable aircraft seat map">
+                <div class="aircraft-map" data-aircraft-map>
+                    <div class="aircraft-map__nose" aria-hidden="true">
+                        <span class="aircraft-map__cockpit"></span>
+                    </div>
+                    <div class="aircraft-map__wing aircraft-map__wing--left" aria-hidden="true"></div>
+                    <div class="aircraft-map__wing aircraft-map__wing--right" aria-hidden="true"></div>
+                    <div class="aircraft-map__cabin">
+                        {% for cabin in seat_groups %}
+                            <section
+                                class="cabin-map cabin-map--{{ cabin.value|lower }}"
+                                aria-labelledby="cabin-{{ cabin.value }}"
+                                data-cabin="{{ cabin.value }}"
+                            >
+                                <div class="cabin-heading">
+                                    <div>
+                                        <p class="eyebrow">Cabin</p>
+                                        <h2 id="cabin-{{ cabin.value }}">{{ cabin.label }}</h2>
+                                    </div>
+                                    <span>
+                                        {% if cabin.value == "BUSINESS" %}Premium spacing{% else %}Standard cabin{% endif %}
+                                    </span>
+                                </div>
+                                <div class="seat-letter-row" aria-hidden="true"
+                                    style="--seat-columns: {{ cabin.letters|length }}">
+                                    <span class="seat-row-number"></span>
+                                    {% for letter in cabin.letters %}
+                                        <span class="seat-letter">{{ letter }}</span>
+                                    {% endfor %}
+                                    <span class="seat-row-number"></span>
+                                </div>
+                                {% for row in cabin.rows %}
+                                    <fieldset class="aircraft-seat-row"
+                                        style="--seat-columns: {{ cabin.letters|length }}">
+                                        <legend class="visually-hidden">{{ cabin.label }} row {{ row.number }}</legend>
+                                        <span class="seat-row-number" aria-hidden="true">{{ row.number }}</span>
+                                        {% for cell in row.cells %}
+                                            {% if cell.seat %}
+                                                {% with seat=cell.seat %}
+                                                <div class="seat-control{% if cell.aisle_before %} seat-control--aisle-before{% endif %}{% if not seat.is_available %} seat-control--unavailable{% endif %}">
+                                                    <input type="radio" name="seat" value="{{ seat.id }}"
+                                                        id="seat-{{ seat.id }}"
+                                                        data-seat-number="{{ seat.seat_number }}"
+                                                        data-cabin-class="{{ seat.get_cabin_class_display }}"
+                                                        data-seat-type="{{ seat.get_seat_type_display }}"
+                                                        data-base-fare="{{ seat.price|jpy }}"
+                                                        data-estimated-fee="{{ seat.estimated_price.taxes_and_fees|jpy }}"
+                                                        data-estimated-total="{{ seat.estimated_price.total_price|jpy }}"
+                                                        {% if form.seat.value|stringformat:"s" == seat.id|stringformat:"s" %}checked{% endif %}
+                                                        {% if form.seat.errors %}aria-invalid="true" aria-describedby="seat-errors"{% endif %}
+                                                        {% if not seat.is_available %}disabled aria-disabled="true"{% endif %}
+                                                        {% if seat.is_available %}required{% endif %}
+                                                    >
+                                                    <label for="seat-{{ seat.id }}"
+                                                        aria-label="Seat {{ seat.seat_number }}, {{ seat.get_cabin_class_display }}, {{ seat.get_seat_type_display }}, {{ seat.price|jpy }}, {% if seat.is_available %}available{% else %}unavailable{% endif %}">
+                                                        <span class="seat-control__number">{{ seat.seat_number }}</span>
+                                                        <span class="seat-control__selected" aria-hidden="true">✓ Selected</span>
+                                                        <span class="seat-control__state">
+                                                            {% if seat.is_available %}Available{% else %}Unavailable{% endif %}
+                                                        </span>
+                                                    </label>
+                                                    <span class="seat-tooltip" role="tooltip">
+                                                        <strong>Seat {{ seat.seat_number }}</strong>
+                                                        <span>{{ seat.get_cabin_class_display }} · {{ seat.get_seat_type_display }}</span>
+                                                        <span>{{ seat.price|jpy }}</span>
+                                                        <span>{% if seat.is_available %}Available{% else %}Unavailable{% endif %}</span>
+                                                    </span>
+                                                </div>
+                                                {% endwith %}
+                                            {% else %}
+                                                <span class="seat-position-empty{% if cell.aisle_before %} seat-position-empty--aisle-before{% endif %}"
+                                                    aria-hidden="true"></span>
+                                            {% endif %}
+                                        {% endfor %}
+                                        <span class="seat-row-number" aria-hidden="true">{{ row.number }}</span>
+                                    </fieldset>
+                                {% endfor %}
+                            </section>
+                        {% empty %}
+                            <p class="empty-state">This flight has no seats configured.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+        <aside class="booking-sidebar" aria-label="Passenger details and selection summary">
+            <div class="booking-sidebar__sticky">
+                {% if form.seat.errors %}
+                    <div id="seat-errors" class="field-errors">{{ form.seat.errors }}</div>
+                {% endif %}
+
+                <section class="panel seat-summary" aria-labelledby="seat-summary-heading"
+                    aria-live="polite" data-seat-summary>
+                    <p class="eyebrow">Your selection</p>
+                    <h2 id="seat-summary-heading">Seat summary</h2>
+                    <p class="seat-summary__empty" data-summary-empty>No seat selected yet.</p>
+                    <dl class="seat-summary__details" data-summary-details hidden>
+                        <div><dt>Seat</dt><dd data-summary-seat>—</dd></div>
+                        <div><dt>Class</dt><dd data-summary-class>—</dd></div>
+                        <div><dt>Seat type</dt><dd data-summary-type>—</dd></div>
+                        <div><dt>Base fare</dt><dd data-summary-base>—</dd></div>
+                        <div><dt>Estimated fee</dt><dd data-summary-fee>—</dd></div>
+                        <div class="seat-summary__total"><dt>Estimated total</dt><dd data-summary-total>—</dd></div>
+                    </dl>
+                    <p class="booking-note">Final pricing is recalculated on the server.</p>
+                </section>
+
+                <section class="panel passenger-panel" aria-labelledby="passenger-heading">
+                    <p class="eyebrow">Your information</p>
+                    <h2 id="passenger-heading">Passenger details</h2>
+                    <div class="form-grid">
+                        {% for field in form %}
+                            {% if field.name != "seat" %}
+                                <div class="form-field">
+                                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.errors %}
+                                        <div class="field-errors" id="{{ field.id_for_label }}-errors">
+                                            {{ field.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <button class="booking-submit booking-submit--sidebar" type="submit"
+                        name="action" value="review">
+                        Review price
+                    </button>
+                    <p class="booking-note">You can review the full price before confirming.</p>
+                </section>
+            </div>
+        </aside>
+    </div>
+
+    <div class="booking-mobile-action">
+        <button class="booking-submit" type="submit" name="action" value="review">
+            Review selected seat
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'reservations/seat-map.js' %}" defer></script>
 {% endblock %}
