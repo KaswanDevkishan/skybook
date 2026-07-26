@@ -213,3 +213,6 @@ if IS_RENDER:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "reservations:sign_in"
+LOGIN_REDIRECT_URL = "reservations:account"

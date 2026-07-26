@@ -1,7 +1,9 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
+from django.test import override_settings
 from django.utils import timezone
 from reservations.forms import BookingForm, FlightSearchForm
 from reservations.models import Airline, Booking, City, Flight, Seat
@@ -64,7 +66,13 @@ def test_flight_search_form_rejects_same_origin_and_destination(route):
     )
 
     assert not form.is_valid()
-    assert "Origin and destination must be different." in form.non_field_errors()
+    assert form.non_field_errors() == [
+        "Your origin and destination cannot be the same. Please select a different airport."
+    ]
+    assert form.fields["origin"].widget.attrs["aria-invalid"] == "true"
+    assert form.fields["destination"].widget.attrs["aria-invalid"] == "true"
+    assert form.fields["origin"].widget.attrs["aria-describedby"] == "same-route-error"
+    assert form.fields["destination"].widget.attrs["aria-describedby"] == "same-route-error"
 
 
 def test_booking_form_is_scoped_to_available_seats_on_selected_flight(flight, seat):
@@ -142,3 +150,43 @@ def test_booking_form_rejects_cross_flight_injection(flight, route):
 
     assert not form.is_valid()
     assert "Select an available seat for this flight." in form.errors["seat"]
+
+
+def _search_data(route, departure_date):
+    origin, destination, _airline = route
+    return {
+        "origin": origin.pk,
+        "destination": destination.pk,
+        "departure_date": departure_date.isoformat(),
+    }
+
+
+def test_flight_search_date_input_minimum_is_today(route):
+    form = FlightSearchForm()
+
+    assert form.fields["departure_date"].widget.attrs["min"] == timezone.localdate().isoformat()
+
+
+@pytest.mark.parametrize("day_offset", [0, 1, 30])
+def test_flight_search_accepts_today_and_future_dates(route, day_offset):
+    form = FlightSearchForm(_search_data(route, timezone.localdate() + timedelta(days=day_offset)))
+
+    assert form.is_valid()
+
+
+def test_flight_search_rejects_yesterday(route):
+    form = FlightSearchForm(_search_data(route, timezone.localdate() - timedelta(days=1)))
+
+    assert not form.is_valid()
+    assert form.errors["departure_date"] == ["Departure date cannot be in the past."]
+
+
+@override_settings(USE_TZ=True, TIME_ZONE="Asia/Tokyo")
+def test_flight_search_uses_configured_timezone_local_date(route):
+    utc_instant = datetime(2026, 1, 1, 15, 30, tzinfo=UTC)
+    with patch("django.utils.timezone.now", return_value=utc_instant):
+        form = FlightSearchForm(_search_data(route, utc_instant.date()))
+
+    assert form.fields["departure_date"].widget.attrs["min"] == "2026-01-02"
+    assert not form.is_valid()
+    assert form.errors["departure_date"] == ["Departure date cannot be in the past."]

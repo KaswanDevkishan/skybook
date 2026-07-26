@@ -1,0 +1,23 @@
+{% extends "reservations/base.html" %}
+
+{% block title %}My Bookings | SkyBook{% endblock %}
+
+{% block content %}
+<section class="auth-shell" aria-labelledby="guest-bookings-heading">
+    <div class="auth-card auth-card--compact">
+        <p class="eyebrow">My Bookings</p>
+        <h1 id="guest-bookings-heading">Guest lookup is coming later</h1>
+        <p>
+            Guest booking lookup by reference and email is not available yet. Your
+            confirmation receipt remains available from the private link shown after
+            checkout.
+        </p>
+        <div class="auth-card__actions">
+            <a class="button" href="{% url 'reservations:sign_in' %}">Sign In</a>
+            <a class="button button--secondary" href="{% url 'reservations:flight_list' %}">
+                Find Flights
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

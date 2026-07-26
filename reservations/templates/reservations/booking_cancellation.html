@@ -1,0 +1,57 @@
+{% extends "reservations/base.html" %}
+{% load reservation_format %}
+
+{% block title %}Cancel {{ booking.booking_reference }} | SkyBook{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <p class="eyebrow">My Bookings</p>
+    <h1>Cancel booking</h1>
+    <p>Review the reservation before continuing.</p>
+</header>
+
+<section class="panel cancellation-panel" aria-labelledby="cancellation-heading">
+    <div class="cancellation-warning" role="alert">
+        <h2 id="cancellation-heading">This action cancels your reservation</h2>
+        <p>
+            The booking will remain in your history and its seat will return to
+            availability. Payment is simulated, so no real refund will occur.
+        </p>
+    </div>
+
+    <dl class="booking-details">
+        <div><dt>Booking reference</dt><dd>{{ booking.booking_reference }}</dd></div>
+        <div>
+            <dt>Flight</dt>
+            <dd>{{ flight.airline.code }}{{ flight.flight_number }}</dd>
+        </div>
+        <div>
+            <dt>Route</dt>
+            <dd>{{ flight.origin.code }} → {{ flight.destination.code }}</dd>
+        </div>
+        <div>
+            <dt>Departure</dt>
+            <dd>{{ flight.departure_time|date:"M j, Y H:i" }}</dd>
+        </div>
+        <div><dt>Passenger</dt><dd>{{ booking.guest_name }}</dd></div>
+        <div><dt>Seat</dt><dd>{{ booking.seat.seat_number }}</dd></div>
+        <div><dt>Total</dt><dd>{{ booking.total_price|jpy }}</dd></div>
+    </dl>
+
+    {% if booking.status == "CANCELLED" %}
+        <p class="form-message" role="status">This booking is already cancelled.</p>
+    {% elif not can_cancel %}
+        <p class="form-message form-message--error" role="alert">
+            This booking cannot be cancelled because the flight has departed.
+        </p>
+    {% else %}
+        <form method="post" class="cancellation-actions">
+            {% csrf_token %}
+            <button class="button button--danger" type="submit">Cancel reservation</button>
+            <a class="button button--secondary" href="{% url 'reservations:account' %}">
+                Keep booking
+            </a>
+        </form>
+    {% endif %}
+</section>
+{% endblock %}

@@ -69,3 +69,52 @@ def test_pricing_migration_preserves_and_backfills_existing_booking():
     assert migrated_registered_booking.user_id == user.pk
     assert migrated_registered_booking.seat_id == registered_seat.pk
     assert migrated_registered_booking.booking_reference != migrated_booking.booking_reference
+
+
+def test_status_migration_defaults_existing_bookings_to_confirmed():
+    executor = MigrationExecutor(connection)
+    executor.migrate([("reservations", "0003_booking_prices_and_seat_classification")])
+    old_apps = executor.loader.project_state(
+        [("reservations", "0003_booking_prices_and_seat_classification")]
+    ).apps
+
+    City = old_apps.get_model("reservations", "City")
+    Airline = old_apps.get_model("reservations", "Airline")
+    Flight = old_apps.get_model("reservations", "Flight")
+    Seat = old_apps.get_model("reservations", "Seat")
+    Booking = old_apps.get_model("reservations", "Booking")
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
+    departure = timezone.now() + timedelta(days=1)
+    flight = Flight.objects.create(
+        airline=airline,
+        flight_number="101",
+        origin=origin,
+        destination=destination,
+        departure_time=departure,
+        arrival_time=departure + timedelta(hours=1),
+    )
+    booking = Booking.objects.create(
+        seat=Seat.objects.create(flight=flight, seat_number="1A"),
+        guest_name="Historical Guest",
+        guest_email="historical@example.com",
+        booking_reference="SKY-HISTORY1",
+        base_fare=Decimal("12345"),
+        taxes_and_fees=Decimal("1235"),
+        total_price=Decimal("13580"),
+    )
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("reservations", "0004_booking_status")])
+    new_apps = executor.loader.project_state([("reservations", "0004_booking_status")]).apps
+    MigratedBooking = new_apps.get_model("reservations", "Booking")
+    migrated = MigratedBooking.objects.get(pk=booking.pk)
+
+    assert migrated.status == "CONFIRMED"
+    assert migrated.booking_reference == "SKY-HISTORY1"
+    assert migrated.guest_name == "Historical Guest"
+    assert migrated.guest_email == "historical@example.com"
+    assert migrated.base_fare == Decimal("12345")
+    assert migrated.taxes_and_fees == Decimal("1235")
+    assert migrated.total_price == Decimal("13580")

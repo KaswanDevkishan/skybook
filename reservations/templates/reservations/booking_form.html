@@ -170,20 +170,39 @@
                             {% endif %}
                         {% endfor %}
                     </div>
-                    <button class="booking-submit booking-submit--sidebar" type="submit"
-                        name="action" value="review">
-                        Review price
-                    </button>
-                    <p class="booking-note">You can review the full price before confirming.</p>
+                    {% if request.user.is_authenticated %}
+                        <button class="booking-submit booking-submit--sidebar" type="submit"
+                            name="action" value="review">
+                            Review price
+                        </button>
+                        <p class="booking-note">You can review the full price before confirming.</p>
+                    {% else %}
+                        <p class="booking-note">
+                            Sign in or create an account to continue your booking.
+                        </p>
+                        <button class="booking-submit booking-submit--sidebar" type="submit"
+                            name="action" value="sign_in">
+                            Sign in to continue
+                        </button>
+                        <button class="button-link" type="submit" name="action" value="register">
+                            New to SkyBook? Create an account
+                        </button>
+                    {% endif %}
                 </section>
             </div>
         </aside>
     </div>
 
     <div class="booking-mobile-action">
-        <button class="booking-submit" type="submit" name="action" value="review">
-            Review selected seat
-        </button>
+        {% if request.user.is_authenticated %}
+            <button class="booking-submit" type="submit" name="action" value="review">
+                Review price
+            </button>
+        {% else %}
+            <button class="booking-submit" type="submit" name="action" value="sign_in">
+                Sign in to continue
+            </button>
+        {% endif %}
     </div>
 </form>
 {% endblock %}

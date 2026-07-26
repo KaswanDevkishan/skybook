@@ -1,0 +1,83 @@
+{% extends "reservations/base.html" %}
+{% load reservation_format %}
+
+{% block title %}Account | SkyBook{% endblock %}
+
+{% block content %}
+<header class="page-header account-header">
+    <p class="eyebrow">Your SkyBook</p>
+    <h1>Account</h1>
+    <p>Review your profile and the bookings made while signed in.</p>
+</header>
+
+<section class="account-profile panel" aria-labelledby="profile-heading">
+    <div>
+        <p class="eyebrow">Profile</p>
+        <h2 id="profile-heading">
+            {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
+        </h2>
+    </div>
+    <dl class="account-profile__details">
+        <div><dt>Username</dt><dd>{{ request.user.username }}</dd></div>
+        <div><dt>Email</dt><dd>{{ request.user.email }}</dd></div>
+    </dl>
+</section>
+
+<section class="account-bookings" aria-labelledby="booking-history-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">My Bookings</p>
+            <h2 id="booking-history-heading">Booking history</h2>
+        </div>
+        <a class="button button--secondary" href="{% url 'reservations:flight_list' %}">
+            Find a flight
+        </a>
+    </div>
+
+    <div class="account-booking-list">
+        {% for booking in bookings %}
+            <article class="account-booking-card">
+                <header class="account-booking-card__header">
+                    <div>
+                        <p class="eyebrow">Booking reference</p>
+                        <h3>{{ booking.booking_reference }}</h3>
+                    </div>
+                    <span class="booking-status booking-status--{{ booking.status|lower }}">
+                        {{ booking.get_status_display }}
+                    </span>
+                </header>
+                <dl class="account-booking-card__details">
+                    <div>
+                        <dt>Route</dt>
+                        <dd>{{ booking.seat.flight.origin.code }} → {{ booking.seat.flight.destination.code }}</dd>
+                    </div>
+                    <div>
+                        <dt>Departure</dt>
+                        <dd>{{ booking.seat.flight.departure_time|date:"M j, Y H:i" }}</dd>
+                    </div>
+                    <div><dt>Seat</dt><dd>{{ booking.seat.seat_number }}</dd></div>
+                    <div><dt>Total</dt><dd>{{ booking.total_price|jpy }}</dd></div>
+                </dl>
+                <div class="account-booking-card__actions">
+                    <a href="{% url 'reservations:booking_confirmation' booking_reference=booking.booking_reference %}">
+                        View receipt
+                    </a>
+                    {% if booking.can_cancel %}
+                        <a
+                            class="button button--danger"
+                            href="{% url 'reservations:cancel_booking' booking_reference=booking.booking_reference %}"
+                        >
+                            Cancel booking
+                        </a>
+                    {% endif %}
+                </div>
+            </article>
+        {% empty %}
+            <div class="empty-state account-bookings__empty">
+                <h3>You have no active bookings.</h3>
+                <p>Confirmed bookings made while signed in will appear here.</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

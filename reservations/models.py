@@ -144,6 +144,10 @@ class Seat(models.Model):
 
 
 class Booking(models.Model):
+    class Status(models.TextChoices):
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
     seat = models.ForeignKey(Seat, on_delete=models.PROTECT, related_name="bookings")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -178,12 +182,21 @@ class Booking(models.Model):
         default=generate_booking_reference,
         editable=False,
     )
+    status = models.CharField(
+        max_length=9,
+        choices=Status.choices,
+        default=Status.CONFIRMED,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
         constraints = [
-            models.UniqueConstraint(fields=["seat"], name="unique_booking_per_seat"),
+            models.UniqueConstraint(
+                fields=["seat"],
+                condition=models.Q(status="CONFIRMED"),
+                name="unique_confirmed_booking_per_seat",
+            ),
             models.CheckConstraint(
                 condition=(
                     models.Q(user__isnull=False)
