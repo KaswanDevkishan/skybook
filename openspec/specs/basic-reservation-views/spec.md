@@ -38,7 +38,10 @@ flight-search form in `reservations/flight_list.html`, and expose the result as 
 `Flight` objects ordered by ascending `departure_time`. With valid query parameters
 it SHALL expose only flights matching the validated origin, destination, and
 departure date in that order. With invalid submitted query parameters it SHALL
-render visible form errors and no partially filtered result set.
+render visible form errors and no partially filtered result set. When the request has
+an `HX-Request` header value of `true`, the view SHALL return only
+`reservations/partials/flight_results.html`; otherwise it SHALL return the complete
+flight-list page.
 
 #### Scenario: Visitor lists flights without searching
 - **WHEN** a visitor sends GET `/flights/` without query parameters and flights have
@@ -55,6 +58,11 @@ render visible form errors and no partially filtered result set.
 #### Scenario: No flights exist
 - **WHEN** a visitor sends GET `/flights/` while no flights exist
 - **THEN** the response has status 200 and the `flights` context is empty
+
+#### Scenario: HTMX visitor searches flights
+- **WHEN** a visitor sends GET `/flights/` with `HX-Request: true`
+- **THEN** the response has status 200, uses
+  `reservations/partials/flight_results.html`, and omits the complete page shell
 
 ### Requirement: Flight detail
 The `flight_detail` view SHALL accept GET requests at

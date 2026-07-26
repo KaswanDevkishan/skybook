@@ -39,31 +39,32 @@ verification, and human review.
   constraints
 
 ### Requirement: Current exercise scope boundary
-Repository guidance SHALL identify the current work as Exercise 9 and SHALL permit
-clean semantic HTML, external CSS, responsive design, accessibility improvements, and
-their tests and documentation in addition to the existing Django foundation, schema,
-administration, basic views, validated GET flight search, and POST guest booking
-creation. It SHALL continue to prohibit authentication screens, payments, an
-interactive seat-map interface, external airline APIs, production styling, and a
-complete booking workflow. It SHALL direct contributors not to add seat class or
-another schema field unless a later requirement genuinely requires it.
+Repository guidance SHALL identify the current work as Exercise 10 and SHALL permit one
+server-driven HTMX flight-search interaction, a reusable result partial, accessible
+loading and live-region feedback, and their tests and documentation in addition to the
+existing Django foundation, schema, administration, basic views, validated GET flight
+search, POST guest booking creation, and Exercise 9 semantic, responsive, accessible
+interface. It SHALL continue to prohibit authentication screens, payments, an
+interactive seat-map interface, checkout, external airline APIs, production styling,
+other client-side frameworks, and a complete booking workflow. It SHALL direct
+contributors not to add seat class or another schema field unless a later requirement
+genuinely requires it.
 
-#### Scenario: Exercise 9 interface feature is requested
-- **WHEN** an agent prepares semantic template, external CSS, responsive layout, or
-  accessibility work for the existing public pages
-- **THEN** repository guidance identifies that focused work as permitted within
-  Exercise 9
+#### Scenario: Exercise 10 HTMX feature is requested
+- **WHEN** an agent prepares the specified server-driven flight-result update
+- **THEN** repository guidance identifies that focused interaction as permitted within
+  Exercise 10
 
 #### Scenario: Existing search or booking work is reviewed
-- **WHEN** an agent changes the presentation of the search or guest-booking forms
-- **THEN** repository guidance requires the existing validation, request, persistence,
-  and database-backed duplicate-seat behavior to remain intact
+- **WHEN** an agent changes the presentation or response representation of flight search
+- **THEN** repository guidance requires the existing validation, GET fallback,
+  persistence, and database-backed duplicate-seat behavior to remain intact
 
 #### Scenario: Deferred feature is requested
-- **WHEN** a requested task would add authentication UI, payments, an interactive
-  seat map, an external airline integration, production styling, or a complete booking
-  workflow
-- **THEN** the guidance identifies that work as outside the Exercise 9 scope
+- **WHEN** a requested task would add authentication UI, payments, an interactive seat
+  map, checkout, an external airline integration, production styling, another
+  client-side framework, or a complete booking workflow
+- **THEN** the guidance identifies that work as outside the Exercise 10 scope
 
 ### Requirement: Domain constraints remain documented
 Guidance SHALL identify `City`, `Airline`, `Flight`, `Seat`, Django's built-in

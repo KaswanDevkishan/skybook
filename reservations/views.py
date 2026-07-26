@@ -28,7 +28,12 @@ def flight_list(request):
             flights = Flight.objects.none()
 
     context = {"form": form, "flights": flights}
-    return render(request, "reservations/flight_list.html", context)
+    template_name = (
+        "reservations/partials/flight_results.html"
+        if request.headers.get("HX-Request") == "true"
+        else "reservations/flight_list.html"
+    )
+    return render(request, template_name, context)
 
 
 @require_GET

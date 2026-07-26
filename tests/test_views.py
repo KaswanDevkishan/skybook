@@ -165,6 +165,78 @@ def test_flight_list_renders_unbound_search_form(client):
 
 
 @pytest.mark.django_db
+def test_flight_list_ordinary_get_renders_complete_page_and_partial(client):
+    response = client.get(reverse("reservations:flight_list"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert_template_used(response, "reservations/flight_list.html")
+    assert_template_used(response, "reservations/partials/flight_results.html")
+    assert "<!DOCTYPE html>" in content
+    assert 'id="flight-results"' in content
+    assert content.count('id="flight-results"') == 1
+    assert 'name="origin"' in content
+
+
+@pytest.mark.django_db
+def test_flight_list_htmx_get_renders_only_results_partial(client):
+    response = client.get(
+        reverse("reservations:flight_list"),
+        headers={"HX-Request": "true"},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert_template_used(response, "reservations/partials/flight_results.html")
+    assert not any(
+        template.name == "reservations/flight_list.html" for template in response.templates
+    )
+    assert 'id="flight-results"' in content
+    assert "<!DOCTYPE html>" not in content
+    assert "<form" not in content
+    assert 'name="origin"' not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("header_value", [None, "false", "True", "1"])
+def test_flight_list_only_treats_explicit_true_hx_request_as_htmx(client, header_value):
+    headers = {} if header_value is None else {"HX-Request": header_value}
+
+    response = client.get(reverse("reservations:flight_list"), headers=headers)
+
+    assert_template_used(response, "reservations/flight_list.html")
+
+
+@pytest.mark.django_db
+def test_flight_list_has_htmx_search_and_accessibility_markup(client):
+    response = client.get(reverse("reservations:flight_list"))
+    content = response.content.decode()
+
+    assert 'src="https://unpkg.com/htmx.org@2.0.4"' in content
+    assert 'integrity="sha384-' in content
+    assert 'method="get"' in content
+    assert 'action="/flights/"' in content
+    assert 'hx-get="/flights/"' in content
+    assert (
+        'hx-trigger="change from:#id_origin, change from:#id_destination, '
+        'change from:#id_departure_date, submit"' in content
+    )
+    assert 'hx-target="#flight-results"' in content
+    assert 'hx-swap="outerHTML"' in content
+    assert 'hx-indicator="#flight-search-indicator"' in content
+    assert 'id="flight-search-indicator"' in content
+    assert 'class="htmx-indicator loading-status"' in content
+    assert "Updating flight results…" in content
+    assert 'role="status"' in content
+    assert 'aria-live="polite"' in content
+    assert 'id="flight-results"' in content
+    assert 'aria-atomic="true"' in content
+    assert '<button type="submit">Search flights</button>' in content
+    for field_name in ("origin", "destination", "departure_date"):
+        assert f'<label for="id_{field_name}">' in content
+
+
+@pytest.mark.django_db
 def test_flight_list_filters_valid_get_query_and_orders_results(client):
     origin = City.objects.create(name="Tokyo", code="TYO")
     destination = City.objects.create(name="Osaka", code="OSA")
@@ -212,6 +284,103 @@ def test_flight_list_filters_valid_get_query_and_orders_results(client):
     assert response.status_code == 200
     assert response.context["form"].is_valid()
     assert list(response.context["flights"]) == [earlier, later]
+
+
+@pytest.mark.django_db
+def test_flight_list_htmx_filters_and_orders_results(client):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+    other_destination = City.objects.create(name="Sapporo", code="SPK")
+    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
+    departure_date = timezone.localdate() + timedelta(days=2)
+    start = timezone.make_aware(
+        timezone.datetime.combine(departure_date, timezone.datetime.min.time())
+    )
+    later = Flight.objects.create(
+        airline=airline,
+        flight_number="102",
+        origin=origin,
+        destination=destination,
+        departure_time=start + timedelta(hours=12),
+        arrival_time=start + timedelta(hours=13),
+    )
+    earlier = Flight.objects.create(
+        airline=airline,
+        flight_number="101",
+        origin=origin,
+        destination=destination,
+        departure_time=start + timedelta(hours=8),
+        arrival_time=start + timedelta(hours=9),
+    )
+    excluded = Flight.objects.create(
+        airline=airline,
+        flight_number="103",
+        origin=origin,
+        destination=other_destination,
+        departure_time=start + timedelta(hours=7),
+        arrival_time=start + timedelta(hours=8),
+    )
+
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": origin.pk,
+            "destination": destination.pk,
+            "departure_date": departure_date.isoformat(),
+        },
+        headers={"HX-Request": "true"},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert list(response.context["flights"]) == [earlier, later]
+    assert content.index(str(earlier)) < content.index(str(later))
+    assert str(excluded) not in content
+    assert content.count('<article class="flight-card">') == 2
+    assert len(re.findall(r"<li>\s*<article class=\"flight-card\">", content)) == 2
+
+
+@pytest.mark.django_db
+def test_flight_list_htmx_invalid_query_returns_validation_feedback(client):
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {"origin": "", "destination": "", "departure_date": "not-a-date"},
+        headers={"HX-Request": "true"},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert response.context["form"].errors
+    assert list(response.context["flights"]) == []
+    assert 'class="error-summary" role="alert"' in content
+    assert "There was a problem with your search." in content
+    assert "This field is required." in content
+    assert "Enter a valid date." in content
+    assert '<ul class="flight-list">' not in content
+
+
+@pytest.mark.django_db
+def test_flight_list_htmx_valid_query_returns_matching_empty_state(client):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    destination = City.objects.create(name="Osaka", code="OSA")
+
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": origin.pk,
+            "destination": destination.pk,
+            "departure_date": "2026-08-01",
+        },
+        headers={"HX-Request": "true"},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert response.context["form"].is_valid()
+    assert list(response.context["flights"]) == []
+    assert 'class="empty-state"' in content
+    assert "No flights match your search." in content
+    assert "No flights are currently scheduled." not in content
 
 
 @pytest.mark.django_db

@@ -1,8 +1,9 @@
 # SkyBook
 
 SkyBook is a simple airline ticket reservation system for a Web Engineering course.
-Exercise 9 gives the existing Django flight search and guest-booking pages a semantic,
-responsive, and accessible interface. SQLite is used for local development.
+Exercise 10 progressively enhances the existing Django flight search with one
+server-driven HTMX result update while retaining the semantic, responsive, accessible
+Exercise 9 interface. SQLite is used for local development.
 
 The current milestone provides:
 
@@ -18,11 +19,13 @@ The current milestone provides:
 - Semantic page landmarks, skip navigation, logical headings, and accessible form
   feedback
 - A namespaced external stylesheet with responsive layouts and visible focus states
+- A pinned HTMX 2.0.4 dependency and server-rendered flight-result updates
+- Progressive-enhancement fallback to the existing complete-page GET search
 
-Authentication screens, payments, the interactive seat-map interface, external
-airline APIs, production styling, and the complete booking workflow are intentionally
-deferred. Search by seat class is also omitted because the current models do not
-contain a compatible seat-class field.
+Authentication screens, payments, checkout, the interactive seat-map interface,
+external airline APIs, production styling, other client-side frameworks, and the
+complete booking workflow are intentionally deferred. Search by seat class is also
+omitted because the current models do not contain a compatible seat-class field.
 
 ## Project Structure
 
@@ -68,7 +71,7 @@ All application routes use the `reservations` URL namespace.
 | Name | Method and URL | Arguments or fields | Response |
 | --- | --- | --- | --- |
 | `reservations:home` | `GET /` | None | Renders the home page with links to the flight list and booking form; status 200 |
-| `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date` | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and departure date in that order. Invalid input re-renders the bound form with visible errors, retained values, and no partially filtered results; status 200 |
+| `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date`; optional `HX-Request: true` header | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and departure date in that order. Invalid input renders visible errors and no partially filtered results. Ordinary requests return the complete page; requests with `HX-Request: true` return only the `flight-results` partial; status 200 |
 | `reservations:flight_detail` | `GET /flights/<int:flight_id>/` | `flight_id`: database ID of a flight | Renders the airline, route, departure time, and arrival time; status 200, or 404 when the flight does not exist |
 | `reservations:booking_new` | `GET /booking/new/` | None | Renders an unbound, CSRF-protected booking form; status 200 |
 | `reservations:booking_submit` | `POST /booking/submit/` | Form fields `seat`, `passenger_name`, and `passenger_email` | Creates a guest booking and redirects to `/` with status 302 when valid. Invalid or duplicate-seat input re-renders the bound form with visible errors and retained values without creating a booking; status 200. Missing CSRF returns 403, and unsupported methods return 405 |
@@ -76,7 +79,10 @@ All application routes use the `reservations` URL namespace.
 
 The flight-search form requires all three fields, resolves origin and destination to
 existing cities, rejects a route whose cities are the same, and validates the date
-before filtering.
+before filtering. It retains `method="get"` and the ordinary `/flights/` action. With
+HTMX available, changing any search field or submitting the form sends all three
+current values to the same route and replaces only the stable `flight-results` region.
+Without HTMX, the submit button performs the same complete-page GET as before.
 
 The booking form requires all three fields, uses Django email validation, resolves the
 seat to an existing record, and rejects a seat that is already booked. Successful
@@ -89,6 +95,8 @@ the final protection against stale or concurrent duplicate-seat requests.
 
 All public HTML pages extend `reservations/base.html` and load
 `reservations/static/reservations/styles.css` through Django's static-file system.
+The base also loads the pinned HTMX 2.0.4 release from unpkg with integrity metadata;
+no custom JavaScript, JavaScript framework, or frontend build pipeline is used.
 The shared page shell provides a skip-to-content link, a stable `main-content` target,
 semantic header, named primary navigation, main, and footer landmarks, plus a visible
 current-page navigation state.
@@ -99,11 +107,17 @@ Invalid bound forms retain submitted values and field-level errors while adding 
 announced validation summary; errors use text, borders, and color rather than color
 alone.
 
+Flight search uses a textual “Updating flight results…” status while enhanced requests
+are active. The reusable result partial is a polite live region and preserves semantic
+`ul`/`li` flight cards, keyboard-operable detail links, validation alerts, and distinct
+initial and no-match empty states. Complete-page and partial responses use the same
+result markup.
+
 The stylesheet uses flexible containers, wrapping flex and grid layouts, overflow-safe
 sizing, and a narrow-screen media query. Navigation, controls, and buttons become
 full-width where appropriate on small screens. Links and controls have visible
-`:focus` and `:focus-visible` indicators. No inline CSS, JavaScript framework, or
-frontend framework is required.
+`:focus` and `:focus-visible` indicators. No inline CSS or frontend framework is
+required.
 
 ## Setup
 
@@ -178,6 +192,10 @@ Exercise 9 interface work is defined by `improve-exercise-9-interface` and relat
 styling), [issue #16](https://github.com/KaswanDevkishan/skybook/issues/16) (responsive
 layout), and [issue #17](https://github.com/KaswanDevkishan/skybook/issues/17)
 (interface accessibility).
+Exercise 10's server-driven flight search is defined by `add-htmx-flight-search` and
+relates to [issue #19](https://github.com/KaswanDevkishan/skybook/issues/19),
+[issue #20](https://github.com/KaswanDevkishan/skybook/issues/20), and
+[issue #21](https://github.com/KaswanDevkishan/skybook/issues/21).
 
 AI-assisted changes require human review before commit. Inspect the final state with:
 
