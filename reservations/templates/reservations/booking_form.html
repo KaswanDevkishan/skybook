@@ -5,36 +5,22 @@
 {% block content %}
 <h2>Booking form</h2>
 
-<p>This placeholder form does not create a booking.</p>
-
 <form method="post" action="{% url 'reservations:booking_submit' %}">
     {% csrf_token %}
 
-    <div>
-        <label for="passenger_name">Passenger name</label>
-        <input
-            id="passenger_name"
-            name="passenger_name"
-            type="text"
-            value="{{ passenger_name|default:'' }}"
-        >
-        {% if errors.passenger_name %}
-            <p>{{ errors.passenger_name }}</p>
-        {% endif %}
-    </div>
+    {% if form.non_field_errors %}
+        <div>
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
 
-    <div>
-        <label for="passenger_email">Passenger email</label>
-        <input
-            id="passenger_email"
-            name="passenger_email"
-            type="email"
-            value="{{ passenger_email|default:'' }}"
-        >
-        {% if errors.passenger_email %}
-            <p>{{ errors.passenger_email }}</p>
-        {% endif %}
-    </div>
+    {% for field in form %}
+        <div>
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+        </div>
+    {% endfor %}
 
     <button type="submit">Submit</button>
 </form>

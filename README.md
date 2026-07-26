@@ -1,8 +1,9 @@
 # SkyBook
 
 SkyBook is a simple airline ticket reservation system for a Web Engineering course.
-Exercise 5 establishes a runnable Django application, its initial database schema, and
-a small set of basic public views. SQLite is used for local development.
+Exercise 8 adds validated Django forms for flight search and simple guest booking to
+the existing Django application and database schema. SQLite is used for local
+development.
 
 The current milestone provides:
 
@@ -12,11 +13,14 @@ The current milestone provides:
 - Guest bookings through a nullable `Booking.user`
 - Database constraints for valid routes, times, scheduled flights, seats, and bookings
 - Django admin registration, migrations, model tests, and coverage
-- Basic home, ordered flight-list, flight-detail, placeholder booking, and health views
+- Basic home, searchable flight-list, flight-detail, guest-booking, and health views
+- GET-based flight search with validated city and departure-date input
+- CSRF-protected guest booking with validated seat, passenger name, and email input
 
-Flight search and filtering, authentication screens, payments, the interactive
-seat-map interface, booking persistence through the placeholder form, and the complete
-booking workflow are intentionally deferred.
+Authentication screens, payments, the interactive seat-map interface, external
+airline APIs, production styling, and the complete booking workflow are intentionally
+deferred. Search by seat class is also omitted because the current models do not
+contain a compatible seat-class field.
 
 ## Project Structure
 
@@ -29,6 +33,7 @@ skybook/
 │   ├── templates/reservations/
 │   ├── admin.py
 │   ├── apps.py
+│   ├── forms.py
 │   ├── models.py
 │   ├── urls.py
 │   └── views.py
@@ -60,14 +65,22 @@ All application routes use the `reservations` URL namespace.
 | Name | Method and URL | Arguments or fields | Response |
 | --- | --- | --- | --- |
 | `reservations:home` | `GET /` | None | Renders the home page with links to the flight list and booking form; status 200 |
-| `reservations:flight_list` | `GET /flights/` | None | Renders all `Flight` records ordered by ascending departure time; status 200 |
+| `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date` | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and departure date in that order. Invalid input re-renders the bound form with visible errors, retained values, and no partially filtered results; status 200 |
 | `reservations:flight_detail` | `GET /flights/<int:flight_id>/` | `flight_id`: database ID of a flight | Renders the airline, route, departure time, and arrival time; status 200, or 404 when the flight does not exist |
-| `reservations:booking_new` | `GET /booking/new/` | None | Renders the placeholder passenger form; status 200 |
-| `reservations:booking_submit` | `POST /booking/submit/` | Form fields `passenger_name` and `passenger_email` | Redirects to `/` with status 302 when both values are non-empty; re-renders the form with status 400 when either is missing, empty, or whitespace; returns 405 for unsupported methods |
+| `reservations:booking_new` | `GET /booking/new/` | None | Renders an unbound, CSRF-protected booking form; status 200 |
+| `reservations:booking_submit` | `POST /booking/submit/` | Form fields `seat`, `passenger_name`, and `passenger_email` | Creates a guest booking and redirects to `/` with status 302 when valid. Invalid or duplicate-seat input re-renders the bound form with visible errors and retained values without creating a booking; status 200. Missing CSRF returns 403, and unsupported methods return 405 |
 | `reservations:health` | `GET /health/` | None | Returns a non-empty plain-text health response; status 200 |
 
-The placeholder submission checks only that the passenger name and email are non-empty.
-It does not validate email shape, select a flight or seat, or create a `Booking` record.
+The flight-search form requires all three fields, resolves origin and destination to
+existing cities, rejects a route whose cities are the same, and validates the date
+before filtering.
+
+The booking form requires all three fields, uses Django email validation, resolves the
+seat to an existing record, and rejects a seat that is already booked. Successful
+submissions create a guest `Booking` by mapping `passenger_name` and `passenger_email`
+to `guest_name` and `guest_email`; `Booking.user` remains null. Form validation
+improves error reporting, while the existing database uniqueness constraint remains
+the final protection against stale or concurrent duplicate-seat requests.
 
 ## Setup
 
@@ -109,7 +122,7 @@ Run Django system and migration checks:
 
 ```bash
 uv run python manage.py check
-uv run python manage.py makemigrations --check
+uv run python manage.py makemigrations --check --dry-run
 ```
 
 Format and lint:
@@ -131,9 +144,12 @@ CI runs dependency installation, Ruff formatting and lint checks, and Pytest.
 ## OpenSpec and Review
 
 Meaningful changes follow the specifications under `openspec/`. The Exercise 5 Django
-foundation and schema are defined by the `create-initial-django-schema` change, which
-relates to GitHub issues #2, #3, and #4. The basic HTTP views are defined by
-`add-basic-django-views`, which relates to GitHub issues #6, #7, and #8.
+foundation and schema are defined by the archived `create-initial-django-schema`
+change, and the basic HTTP views by `add-basic-django-views`. Exercise 8 form handling
+is defined by `implement-django-forms` and relates to
+[issue #11](https://github.com/KaswanDevkishan/skybook/issues/11),
+[issue #12](https://github.com/KaswanDevkishan/skybook/issues/12), and
+[issue #13](https://github.com/KaswanDevkishan/skybook/issues/13).
 
 AI-assisted changes require human review before commit. Inspect the final state with:
 

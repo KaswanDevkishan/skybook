@@ -1,8 +1,10 @@
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from reservations.models import Flight
+from reservations.forms import BookingForm, FlightSearchForm
+from reservations.models import Booking, Flight
 
 
 @require_GET
@@ -12,8 +14,21 @@ def home(request):
 
 @require_GET
 def flight_list(request):
+    form = FlightSearchForm(request.GET or None)
     flights = Flight.objects.order_by("departure_time")
-    return render(request, "reservations/flight_list.html", {"flights": flights})
+
+    if form.is_bound:
+        if form.is_valid():
+            flights = flights.filter(
+                origin=form.cleaned_data["origin"],
+                destination=form.cleaned_data["destination"],
+                departure_time__date=form.cleaned_data["departure_date"],
+            )
+        else:
+            flights = Flight.objects.none()
+
+    context = {"form": form, "flights": flights}
+    return render(request, "reservations/flight_list.html", context)
 
 
 @require_GET
@@ -24,29 +39,26 @@ def flight_detail(request, flight_id):
 
 @require_GET
 def booking_new(request):
-    return render(request, "reservations/booking_form.html")
+    return render(request, "reservations/booking_form.html", {"form": BookingForm()})
 
 
 @require_POST
 def booking_submit(request):
-    passenger_name = request.POST.get("passenger_name", "")
-    passenger_email = request.POST.get("passenger_email", "")
-    errors = {}
+    form = BookingForm(request.POST)
 
-    if not passenger_name.strip():
-        errors["passenger_name"] = "Passenger name is required."
-    if not passenger_email.strip():
-        errors["passenger_email"] = "Passenger email is required."
+    if form.is_valid():
+        try:
+            with transaction.atomic():
+                form.save()
+        except IntegrityError:
+            seat = form.cleaned_data["seat"]
+            if not Booking.objects.filter(seat=seat).exists():
+                raise
+            form.add_error("seat", "This seat was booked before your request completed.")
+        else:
+            return redirect("reservations:home")
 
-    if errors:
-        context = {
-            "errors": errors,
-            "passenger_name": passenger_name,
-            "passenger_email": passenger_email,
-        }
-        return render(request, "reservations/booking_form.html", context, status=400)
-
-    return redirect("reservations:home")
+    return render(request, "reservations/booking_form.html", {"form": form})
 
 
 @require_GET
