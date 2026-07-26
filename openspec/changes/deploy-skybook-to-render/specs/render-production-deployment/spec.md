@@ -88,16 +88,41 @@ The repository SHALL describe a free-plan Render web service deployed from GitHu
 `main`, using a fully pinned Python 3.12 runtime and one fail-fast build that installs
 locked dependencies, migrates, and collects static assets, plus Gunicorn with
 `skybook.wsgi:application` bound to Render's `PORT`, Render PostgreSQL, and `/health/`
-as its health check.
+as its health check. After migration, the build SHALL run an idempotent demo-data
+command before collecting static assets.
 
 #### Scenario: Render builds a revision
 - **WHEN** a selected `main` revision is deployed
 - **THEN** Render installs the frozen production dependency set, applies existing
-  migrations, and successfully collects static assets
+  migrations, initializes demonstration data, and successfully collects static assets
 
 #### Scenario: A build step fails
-- **WHEN** dependency installation, migration, or static collection returns an error
+- **WHEN** dependency installation, migration, demo-data initialization, or static
+  collection returns an error
 - **THEN** shell chaining stops the build before the service starts
+
+### Requirement: Safe course demonstration data initialization
+SkyBook SHALL provide a `seed_demo_data` management command that creates at least four
+cities, at least two airlines, multiple connected future flights between different
+cities, and seats for every seeded flight. It SHALL use stable identifiers and
+non-destructive create or update operations so repeated runs do not duplicate seeded
+records, delete bookings, or overwrite unrelated records.
+
+#### Scenario: Empty production database is seeded
+- **WHEN** the command runs after migrations on an empty database
+- **THEN** flight-search city choices, future search results, and bookable seat choices
+  are available
+
+#### Scenario: Seed command is repeated
+- **WHEN** the command runs more than once on a database containing seeded data,
+  unrelated records, and an existing booking
+- **THEN** seeded records are not duplicated and existing unrelated records and
+  bookings remain intact
+
+#### Scenario: Deployment date advances
+- **WHEN** the command runs during a later deployment
+- **THEN** the owned demo flight schedule is refreshed from the current date so the
+  demonstration does not immediately become outdated
 
 #### Scenario: Render starts the web service
 - **WHEN** Render provides `PORT` and executes the configured start command

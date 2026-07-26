@@ -93,3 +93,16 @@
   Render Blueprint with authorized account access, and verify the build, migration,
   `/health/`, static assets, application pages, and logs before declaring deployment
   complete.
+
+## 8. Production Data Initialization
+
+- [x] 8.1 Add a safe, idempotent `seed_demo_data` management command with stable
+  identifiers, connected future flights, and seats, without deleting bookings or
+  changing the schema.
+- [x] 8.2 Run the command between migration and static collection in the fail-fast
+  Render build.
+- [x] 8.3 Add focused tests for empty-database population, idempotency, preserved
+  existing data, flight-search cities and results, and booking-form seats.
+- [x] 8.4 Document automatic course-demonstration seeding and local command usage,
+  while distinguishing controlled real-production data loading.
+- [x] 8.5 Run the requested Pytest, Django, Ruff, strict OpenSpec, and diff checks.
