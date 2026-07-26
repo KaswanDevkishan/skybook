@@ -1,0 +1,33 @@
+<h2 id="results-heading">Available flights</h2>
+
+{% if form.errors %}
+    <div class="error-summary" role="alert">
+        <p><strong>There was a problem with your search.</strong></p>
+        <p>Please review the highlighted fields and try again.</p>
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            {{ field.errors }}
+        {% endfor %}
+    </div>
+{% endif %}
+
+{% if flights %}
+    <ul class="flight-list">
+        {% for flight in flights %}
+            <li>
+                <article class="flight-card">
+                    <h3>
+                        <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
+                            {{ flight }}
+                        </a>
+                    </h3>
+                    <p><strong>Departure:</strong> {{ flight.departure_time }}</p>
+                </article>
+            </li>
+        {% endfor %}
+    </ul>
+{% elif form.is_bound and form.is_valid %}
+    <p class="empty-state">No flights match your search.</p>
+{% elif not form.errors %}
+    <p class="empty-state">No flights are currently scheduled.</p>
+{% endif %}

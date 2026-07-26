@@ -8,6 +8,8 @@ Flask scaffold with Django; keep the application Django-based and do not introdu
 another web framework. Exercise 8 adds proper Django forms for validated flight
 search and simple guest-booking creation. Exercise 9 improves the existing interface
 with semantic HTML, namespaced external CSS, responsive layout, and accessibility.
+Exercise 10 adds one server-driven HTMX interaction that updates flight-search results
+without reloading the complete page.
 
 The Django project package belongs in `skybook/`, the main application in
 `reservations/`, tests in `tests/`, and the management entry point is `manage.py`.
@@ -15,14 +17,17 @@ Configuration lives in `pyproject.toml`; CI runs from
 `.github/workflows/ci.yml`. Before meaningful implementation, read the relevant
 documents under `openspec/` and follow their requirements. Repository-local skills
 support exploring, proposing, applying, updating, syncing, and archiving OpenSpec
-changes. Exercise 9 permits the existing Django foundation, database schema, admin
+changes. Exercise 10 permits the existing Django foundation, database schema, admin
 registration, migrations, tests, basic views, GET flight search, CSRF-protected POST
 guest booking for an existing seat, and focused semantic, responsive, and accessible
-interface work. Preserve existing search, validation, booking, and duplicate-seat
-behavior while changing presentation. Authentication screens, payments, the
-interactive seat-map interface, external airline APIs, production styling, and the
-complete booking workflow remain out of scope. Do not add seat class or another schema
-field unless a later requirement genuinely requires it.
+interface work. It also permits one pinned, progressively enhanced HTMX GET interaction,
+a reusable flight-results partial, header-selected partial responses, accessible
+loading feedback, and focused tests and documentation. Preserve ordinary full-page GET
+search, validation, booking, and duplicate-seat behavior. Authentication screens,
+payments, checkout, the interactive seat-map interface, external airline APIs,
+production styling, other client-side frameworks, and the complete booking workflow
+remain out of scope. Do not add seat class or another schema field unless a later
+requirement genuinely requires it.
 
 ## Domain Model and Booking Rules
 
@@ -60,7 +65,10 @@ fixes require tests, especially guest/registered booking paths, model constraint
 migrations, search validation, CSRF protection, retained form values, and
 duplicate-seat rejection. Interface changes also require tests for static assets,
 semantic landmarks, skip navigation, visible labels, and accessible error markup. Do
-not reduce coverage.
+not reduce coverage. Exercise 10 tests must distinguish complete-page and HTMX partial
+responses, cover strict `HX-Request` detection, filtering, validation, empty states,
+the HTMX form attributes, loading and live-region semantics, progressive enhancement,
+and migration safety.
 
 ## Commits and Pull Requests
 

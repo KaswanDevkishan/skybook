@@ -291,6 +291,22 @@ button:hover {
     margin-top: var(--space-6);
 }
 
+.loading-status {
+    display: inline-block;
+    margin-left: var(--space-3);
+    color: var(--color-muted);
+    font-weight: 700;
+}
+
+.htmx-indicator {
+    visibility: hidden;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    visibility: visible;
+}
+
 .flight-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
