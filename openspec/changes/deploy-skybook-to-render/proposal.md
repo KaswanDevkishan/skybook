@@ -14,8 +14,8 @@ minimum production infrastructure needed to operate the course project from GitH
   behavior and convenient SQLite-based local defaults.
 - Add Render infrastructure configuration for a web service and PostgreSQL database,
   including a fully pinned Python 3.12 runtime, locked installation, free-tier build
-  migration and static collection, health checking, and a Gunicorn start command bound
-  to Render's `PORT`.
+  migration, idempotent course-demonstration data initialization, static collection,
+  health checking, and a Gunicorn start command bound to Render's `PORT`.
 - Serve collected static assets through WhiteNoise without committing generated output.
 - Add focused production-settings tests and deployment verification commands.
 - Document Render provisioning, environment variables, migrations, superuser creation,
@@ -44,7 +44,8 @@ minimum production infrastructure needed to operate the course project from GitH
 ## Impact
 
 The change affects `pyproject.toml`, `uv.lock`, Django settings, static-file storage and
-middleware, a new `render.yaml`, production configuration tests, `.gitignore`, and
-`README.md`. Runtime integrations are Render Web Services and Render PostgreSQL; the
-public application routes, health endpoint, domain schema, existing migrations,
-booking invariants, and local SQLite workflow remain compatible.
+middleware, a new `render.yaml`, an idempotent demo-data management command, production
+configuration tests, `.gitignore`, and `README.md`. Runtime integrations are Render Web
+Services and Render PostgreSQL; the public application routes, health endpoint, domain
+schema, existing migrations, booking invariants, and local SQLite workflow remain
+compatible.

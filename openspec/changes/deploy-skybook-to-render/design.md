@@ -20,6 +20,8 @@ duplicate-seat invariant, and remain understandable for a course project.
   configuration.
 - Make deployment, migration, verification, troubleshooting, and rollback procedures
   clear and testable.
+- Ensure a newly provisioned course-demonstration database has connected, searchable,
+  bookable sample data without destructive resets.
 - Preserve SQLite development, current routes including `/health/`, current migrations,
   and all reservation invariants.
 
@@ -87,7 +89,8 @@ PostgreSQL database. It will define:
 
 - a fully qualified Python 3.12 runtime version;
 - one fail-fast `&&`-chained build command using `uv sync --frozen --no-dev`, followed
-  by `python manage.py migrate` and `collectstatic --noinput`;
+  by `python manage.py migrate`, `python manage.py seed_demo_data`, and
+  `collectstatic --noinput`;
 - a start command invoking `gunicorn skybook.wsgi:application` and binding
   `0.0.0.0:$PORT`;
 - `/health/` as the health-check path;
@@ -102,6 +105,25 @@ prefer moving migration to `preDeployCommand` as an explicit release step.
 Alternative considered: dashboard-only configuration. A Blueprint makes build, start,
 health, and database wiring reviewable and repeatable while leaving secret values out
 of source control.
+
+### Seed owned demonstration records idempotently
+
+Add a `seed_demo_data` Django management command that uses stable city and airline
+codes plus a reserved set of demo flight numbers. Cities and airlines use
+`get_or_create`; demo flights use `get_or_create` so departure and arrival times are
+assigned only when each flight is first created; and seats use `get_or_create` for
+every demo flight. The command validates that every seeded route connects different
+cities and does not delete, recreate, or reschedule rows, so existing bookings and
+unrelated application data remain intact.
+
+Running the command during the Render build gives a newly migrated course database
+enough connected data for flight search and guest booking. This is intentionally a
+course-demonstration convenience, not a general production data-loading strategy; a
+real airline system would use controlled imports or administration workflows.
+
+Alternative considered: refresh relative future datetimes on every build. Mutating an
+existing flight's schedule could silently reschedule a booking, so deployment-date
+advances apply only when creating previously missing seeded flights.
 
 ### Verify configuration at both unit and process boundaries
 
@@ -122,6 +144,9 @@ validation.
 - [Build-time migrations can make a bad release harder to roll back] → Fail the build
   immediately on migration errors, review migrations before release, prefer forward
   fixes, and document the free plan's limited recovery options.
+- [Repeated builds could duplicate, erase, or reschedule demonstration data] → Use
+  stable identifiers and create-only schedule defaults, and test later-dated reruns
+  with existing bookings and unrelated records.
 - [Free Render PostgreSQL expires after 30 days and is later deleted] → Document the
   lifetime clearly and require upgrade or data preservation before expiry.
 - [Render's filesystem is ephemeral] → Store only rebuildable collected static assets
@@ -137,8 +162,8 @@ validation.
 2. Add the Blueprint and documentation; verify all local and production-style commands.
 3. Commit and push the reviewed change to GitHub `main`.
 4. Create or apply the Render Blueprint, confirm generated secrets and the database
-   connection, and allow the fail-fast build migration and static collection to
-   complete.
+   connection, and allow the fail-fast build migration, demo-data initialization, and
+   static collection to complete.
 5. Verify `/health/`, static assets, application pages, logs, and migration state; then
    create a superuser through a temporary, uncommitted local connection to the Render
    PostgreSQL external URL only if administrative access is needed.

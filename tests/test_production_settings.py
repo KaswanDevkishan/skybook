@@ -290,6 +290,7 @@ def test_render_blueprint_defines_the_production_lifecycle():
     assert (
         "buildCommand: uv sync --frozen --no-dev"
         " && uv run python manage.py migrate"
+        " && uv run python manage.py seed_demo_data"
         " && uv run python manage.py collectstatic --noinput"
     ) in blueprint
     assert "preDeployCommand" not in blueprint

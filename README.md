@@ -23,6 +23,7 @@ The current milestone provides:
 - A pinned HTMX 2.0.4 dependency and server-rendered flight-result updates
 - Progressive-enhancement fallback to the existing complete-page GET search
 - A Render Web Service running Gunicorn with PostgreSQL and WhiteNoise static delivery
+- Idempotent course-demonstration data initialization during Render deployment
 
 Authentication screens, payments, checkout, the interactive seat-map interface,
 external airline APIs, production styling, other client-side frameworks, and the
@@ -145,6 +146,16 @@ Apply migrations:
 uv run python manage.py migrate
 ```
 
+Populate connected demonstration cities, airlines, future flights, and seats:
+
+```bash
+uv run python manage.py seed_demo_data
+```
+
+The command is safe to repeat. It creates missing demo records while preserving every
+existing seeded flight's departure and arrival times. Existing bookings are therefore
+never rescheduled, and the command does not delete bookings or unrelated data.
+
 Start the development server:
 
 ```bash
@@ -168,8 +179,9 @@ PostgreSQL database:
 - GitHub's `main` branch is the deployment source.
 - Render uses Python 3.12.8 and installs the frozen `uv.lock` production dependency
   set.
-- The free-tier build applies existing Django migrations and then collects static
-  files; WhiteNoise serves compressed, content-hashed assets from `STATIC_ROOT`.
+- The free-tier build applies existing Django migrations, initializes demonstration
+  data, and then collects static files; WhiteNoise serves compressed, content-hashed
+  assets from `STATIC_ROOT`.
 - Gunicorn imports `skybook.wsgi:application` and binds to Render's `PORT`.
 - Gunicorn's default single worker is adequate for this course/free-tier deployment;
   a scaled production service can set `WEB_CONCURRENCY` later.
@@ -194,8 +206,8 @@ lifecycle. It implements [issues #23](https://github.com/KaswanDevkishan/skybook
    apply the Blueprint.
 5. Confirm Render generated `SECRET_KEY`, connected `DATABASE_URL`, and set its
    automatic `RENDER` and `RENDER_EXTERNAL_HOSTNAME` variables.
-6. Wait for dependency installation, migration, static collection, and service startup
-   to succeed.
+6. Wait for dependency installation, migration, demo-data initialization, static
+   collection, and service startup to succeed.
 7. Verify `/health/`, a page using `/static/reservations/styles.css`, application
    routes, and Render logs.
 
@@ -221,17 +233,27 @@ The Blueprint uses these exact lifecycle commands:
 
 ```bash
 # Build
-uv sync --frozen --no-dev && uv run python manage.py migrate && uv run python manage.py collectstatic --noinput
+uv sync --frozen --no-dev && uv run python manage.py migrate && uv run python manage.py seed_demo_data && uv run python manage.py collectstatic --noinput
 
 # Start
 uv run gunicorn skybook.wsgi:application --bind 0.0.0.0:$PORT
 ```
 
 The `&&` chaining stops the build immediately if dependency installation, migration,
-or static collection fails. Migrations run during the build because Render
-pre-deploy commands and Shell access are unavailable to free web services. If the
-service is upgraded to a paid plan, preferably move migration back to a
-`preDeployCommand` so it runs as a distinct release step.
+demo-data initialization, or static collection fails. Migrations run during the build
+because Render pre-deploy commands and Shell access are unavailable to free web
+services. If the service is upgraded to a paid plan, preferably move migration back to
+a `preDeployCommand` so it runs as a distinct release step.
+
+Render automatically runs `seed_demo_data` after migrations on every deployment. This
+ensures the course demonstration has cities, airlines, future searchable flights, and
+available seats even when PostgreSQL starts empty. The command is deliberately
+idempotent: it creates each seeded flight's schedule only once, preserves that schedule
+on later deployments, and never reschedules existing bookings. It also preserves
+unrelated records. This is appropriate for SkyBook's course demonstration; a real
+production reservation system would normally initialize and maintain operational data
+through authenticated admin tools or reviewed, controlled import processes instead of
+automatic demo seeding.
 
 The Blueprint injects Render PostgreSQL's internal `DATABASE_URL`; `ssl_require` is
 not necessary for that internal connection. Never commit either the internal or
