@@ -3,36 +3,58 @@
 {% block title %}Flights | SkyBook{% endblock %}
 
 {% block content %}
-<h2>Flights</h2>
+<header class="page-header">
+    <p class="eyebrow">Plan your journey</p>
+    <h1>Flights</h1>
+    <p>Search available routes by city and departure date.</p>
+</header>
 
-<form method="get" action="{% url 'reservations:flight_list' %}">
-    {% if form.non_field_errors %}
-        <div>
-            {{ form.non_field_errors }}
+<section class="panel" aria-labelledby="search-heading">
+    <h2 id="search-heading">Search flights</h2>
+
+    <form method="get" action="{% url 'reservations:flight_list' %}">
+        {% if form.errors %}
+            <div class="error-summary" role="alert">
+                <p><strong>There was a problem with your search.</strong></p>
+                <p>Please review the highlighted fields below.</p>
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="form-grid">
+            {% for field in form %}
+                <div class="form-field">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
         </div>
+
+        <button type="submit">Search flights</button>
+    </form>
+</section>
+
+<section class="results-section" aria-labelledby="results-heading">
+    <h2 id="results-heading">Available flights</h2>
+
+    {% if flights %}
+        <ul class="flight-list">
+            {% for flight in flights %}
+                <li>
+                    <article class="flight-card">
+                        <h3>
+                            <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
+                                {{ flight }}
+                            </a>
+                        </h3>
+                        <p><strong>Departure:</strong> {{ flight.departure_time }}</p>
+                    </article>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="empty-state">No flights are currently scheduled.</p>
     {% endif %}
-
-    {% for field in form %}
-        <div>
-            {{ field.label_tag }}
-            {{ field }}
-            {{ field.errors }}
-        </div>
-    {% endfor %}
-
-    <button type="submit">Search</button>
-</form>
-
-<ul>
-    {% for flight in flights %}
-        <li>
-            <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
-                {{ flight }}
-            </a>
-            — {{ flight.departure_time }}
-        </li>
-    {% empty %}
-        <li>No flights are currently scheduled.</li>
-    {% endfor %}
-</ul>
+</section>
 {% endblock %}

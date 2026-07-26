@@ -3,19 +3,31 @@
 {% block title %}{{ flight }} | SkyBook{% endblock %}
 
 {% block content %}
-<h2>{{ flight }}</h2>
+<article class="flight-detail" aria-labelledby="flight-heading">
+    <header class="page-header">
+        <p class="eyebrow">Flight details</p>
+        <h1 id="flight-heading">{{ flight }}</h1>
+    </header>
 
-<dl>
-    <dt>Airline</dt>
-    <dd>{{ flight.airline }}</dd>
+    <dl class="detail-list">
+        <div>
+            <dt>Airline</dt>
+            <dd>{{ flight.airline }}</dd>
+        </div>
+        <div>
+            <dt>Route</dt>
+            <dd>{{ flight.origin }} to {{ flight.destination }}</dd>
+        </div>
+        <div>
+            <dt>Departure</dt>
+            <dd>{{ flight.departure_time }}</dd>
+        </div>
+        <div>
+            <dt>Arrival</dt>
+            <dd>{{ flight.arrival_time }}</dd>
+        </div>
+    </dl>
 
-    <dt>Route</dt>
-    <dd>{{ flight.origin }} to {{ flight.destination }}</dd>
-
-    <dt>Departure</dt>
-    <dd>{{ flight.departure_time }}</dd>
-
-    <dt>Arrival</dt>
-    <dd>{{ flight.arrival_time }}</dd>
-</dl>
+    <a class="text-link" href="{% url 'reservations:flight_list' %}">Back to flights</a>
+</article>
 {% endblock %}

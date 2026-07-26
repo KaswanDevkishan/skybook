@@ -3,25 +3,37 @@
 {% block title %}Booking Form | SkyBook{% endblock %}
 
 {% block content %}
-<h2>Booking form</h2>
+<header class="page-header">
+    <p class="eyebrow">Guest reservation</p>
+    <h1>Booking form</h1>
+    <p>Select an available seat and enter the passenger details.</p>
+</header>
 
-<form method="post" action="{% url 'reservations:booking_submit' %}">
-    {% csrf_token %}
+<section class="panel" aria-labelledby="passenger-heading">
+    <h2 id="passenger-heading">Passenger and seat details</h2>
 
-    {% if form.non_field_errors %}
-        <div>
-            {{ form.non_field_errors }}
+    <form method="post" action="{% url 'reservations:booking_submit' %}">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="error-summary" role="alert">
+                <p><strong>There was a problem with your booking.</strong></p>
+                <p>Please review the highlighted fields below.</p>
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="form-grid">
+            {% for field in form %}
+                <div class="form-field">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
         </div>
-    {% endif %}
 
-    {% for field in form %}
-        <div>
-            {{ field.label_tag }}
-            {{ field }}
-            {{ field.errors }}
-        </div>
-    {% endfor %}
-
-    <button type="submit">Submit</button>
-</form>
+        <button type="submit">Submit booking</button>
+    </form>
+</section>
 {% endblock %}
