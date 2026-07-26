@@ -11,10 +11,11 @@ updated flight links and controls SHALL retain visible focus and keyboard usabil
 - **THEN** a visible textual status communicates that flights are loading and is
   exposed to assistive technology
 
-#### Scenario: Flight results are replaced
-- **WHEN** an enhanced response replaces the flight-results region
-- **THEN** assistive technology can discover the non-disruptive result update and all
-  result links remain keyboard operable
+#### Scenario: Flight-result contents are replaced
+- **WHEN** an enhanced response replaces the contents of the flight-results region
+- **THEN** the node that owns the polite live-region semantics remains connected,
+  assistive technology can discover the non-disruptive result update, and all result
+  links remain keyboard operable
 
 #### Scenario: Enhanced validation fails
 - **WHEN** an enhanced flight search returns invalid form feedback

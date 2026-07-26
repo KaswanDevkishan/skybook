@@ -16,11 +16,12 @@
 - [x] 2.1 Add the pinned HTMX script to the shared base template without a JavaScript
   framework or custom JavaScript.
 - [x] 2.2 Create
-  `reservations/templates/reservations/partials/flight_results.html` with the stable
-  `flight-results` region, validation summary, semantic flight cards, and empty state.
+  `reservations/templates/reservations/partials/flight_results.html` with the result
+  contents, validation summary, semantic flight cards, and empty state.
 - [x] 2.3 Refactor the complete flight-list template to include the partial once and
   enhance its existing GET form with complete-form change and submit requests,
-  `outerHTML` targeting, and an associated textual loading indicator.
+  `innerHTML` targeting of a stable live-region owner, and an associated textual
+  loading indicator.
 - [x] 2.4 Update namespaced CSS to preserve responsive flight-card presentation and
   provide visible, non-animation-only HTMX loading feedback.
 - [x] 2.5 Update `flight_list` to select the partial only when the `HX-Request` header

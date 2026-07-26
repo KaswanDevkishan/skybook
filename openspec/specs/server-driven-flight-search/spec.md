@@ -9,12 +9,12 @@ contract, reusable result rendering, accessible update feedback, and schema boun
 
 ### Requirement: Pinned declarative HTMX dependency
 The shared reservation base template SHALL load a pinned HTMX version for enhanced
-requests and SHALL NOT add a JavaScript framework or custom JavaScript for the flight
-search interaction.
+requests, SHALL defer that script's execution, and SHALL NOT add a JavaScript framework
+or custom JavaScript for the flight search interaction.
 
 #### Scenario: Visitor opens a complete reservation page
 - **WHEN** a visitor requests a reservation page that extends the shared base template
-- **THEN** the response includes a script URL with an explicit HTMX version
+- **THEN** the response includes a deferred script URL with an explicit HTMX version
 
 #### Scenario: Contributor reviews the interaction implementation
 - **WHEN** a contributor inspects the flight-search implementation
@@ -43,20 +43,23 @@ and include the complete form values in every enhanced request.
 
 ### Requirement: Targeted result replacement
 The enhanced form SHALL target a result region with the stable `flight-results` ID and
-SHALL use an HTMX swap strategy that replaces that region with a response containing
-the same stable target.
+SHALL use `innerHTML` swapping so that only the region's contents are replaced. The
+node with the stable target ID and its live-region attributes SHALL remain connected
+across enhanced updates.
 
 #### Scenario: Enhanced search completes
 - **WHEN** the server returns a successful HTMX search response
-- **THEN** HTMX replaces only the flight-results region and leaves the surrounding page
-  and search controls in place
+- **THEN** HTMX replaces only the contents of the flight-results region, leaves its
+  live-region owner connected, and leaves the surrounding page and search controls in
+  place
 
 ### Requirement: Reusable flight-results partial
 The system SHALL provide
 `reservations/templates/reservations/partials/flight_results.html` as the single
-rendering source for the flight-results region in complete-page and HTMX responses. The
-partial SHALL render validation feedback, matching flights as semantic `ul` and `li`
-content using the existing responsive flight-card classes, and an explicit empty state.
+rendering source for the contents of the flight-results region in complete-page and
+HTMX responses. The partial SHALL render validation feedback, matching flights as
+semantic `ul` and `li` content using the existing responsive flight-card classes, and
+an explicit empty state.
 
 #### Scenario: Complete page contains matching flights
 - **WHEN** an ordinary valid search returns flights
@@ -112,7 +115,8 @@ validation messages.
 
 #### Scenario: Updated results arrive
 - **WHEN** HTMX swaps a result, validation, or empty-state response
-- **THEN** the updated flight-results region is exposed as a non-disruptive live update
+- **THEN** the stable flight-results live-region node remains connected while its
+  updated contents are exposed as a non-disruptive live update
 
 ### Requirement: No persistence or schema impact
 The interaction SHALL NOT modify database models, create migrations, or change booking

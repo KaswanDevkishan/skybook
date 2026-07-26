@@ -191,7 +191,10 @@ def test_flight_list_htmx_get_renders_only_results_partial(client):
     assert not any(
         template.name == "reservations/flight_list.html" for template in response.templates
     )
-    assert 'id="flight-results"' in content
+    assert 'id="flight-results"' not in content
+    assert 'aria-live="polite"' not in content
+    assert 'aria-atomic="true"' not in content
+    assert 'id="results-heading"' in content
     assert "<!DOCTYPE html>" not in content
     assert "<form" not in content
     assert 'name="origin"' not in content
@@ -214,6 +217,7 @@ def test_flight_list_has_htmx_search_and_accessibility_markup(client):
 
     assert 'src="https://unpkg.com/htmx.org@2.0.4"' in content
     assert 'integrity="sha384-' in content
+    assert re.search(r"<script[^>]*\sdefer(?:\s|>)[^>]*>", content)
     assert 'method="get"' in content
     assert 'action="/flights/"' in content
     assert 'hx-get="/flights/"' in content
@@ -222,7 +226,7 @@ def test_flight_list_has_htmx_search_and_accessibility_markup(client):
         'change from:#id_departure_date, submit"' in content
     )
     assert 'hx-target="#flight-results"' in content
-    assert 'hx-swap="outerHTML"' in content
+    assert 'hx-swap="innerHTML"' in content
     assert 'hx-indicator="#flight-search-indicator"' in content
     assert 'id="flight-search-indicator"' in content
     assert 'class="htmx-indicator loading-status"' in content
@@ -231,6 +235,11 @@ def test_flight_list_has_htmx_search_and_accessibility_markup(client):
     assert 'aria-live="polite"' in content
     assert 'id="flight-results"' in content
     assert 'aria-atomic="true"' in content
+    results_section = re.search(r'<section class="results-section"(?P<attributes>[^>]*)>', content)
+    assert results_section
+    assert 'id="flight-results"' in results_section.group("attributes")
+    assert 'aria-live="polite"' in results_section.group("attributes")
+    assert 'aria-atomic="true"' in results_section.group("attributes")
     assert '<button type="submit">Search flights</button>' in content
     for field_name in ("origin", "destination", "departure_date"):
         assert f'<label for="id_{field_name}">' in content

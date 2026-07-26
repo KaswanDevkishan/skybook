@@ -81,8 +81,10 @@ The flight-search form requires all three fields, resolves origin and destinatio
 existing cities, rejects a route whose cities are the same, and validates the date
 before filtering. It retains `method="get"` and the ordinary `/flights/` action. With
 HTMX available, changing any search field or submitting the form sends all three
-current values to the same route and replaces only the stable `flight-results` region.
-Without HTMX, the submit button performs the same complete-page GET as before.
+current values to the same route and replaces only the contents of the stable
+`flight-results` region. The node that owns `aria-live` and `aria-atomic` remains in
+the document across updates. Without HTMX, the submit button performs the same
+complete-page GET as before.
 
 The booking form requires all three fields, uses Django email validation, resolves the
 seat to an existing record, and rejects a seat that is already booked. Successful
@@ -95,8 +97,9 @@ the final protection against stale or concurrent duplicate-seat requests.
 
 All public HTML pages extend `reservations/base.html` and load
 `reservations/static/reservations/styles.css` through Django's static-file system.
-The base also loads the pinned HTMX 2.0.4 release from unpkg with integrity metadata;
-no custom JavaScript, JavaScript framework, or frontend build pipeline is used.
+The base also loads the pinned HTMX 2.0.4 release from unpkg with integrity metadata
+and the `defer` attribute; no custom JavaScript, JavaScript framework, or frontend
+build pipeline is used.
 The shared page shell provides a skip-to-content link, a stable `main-content` target,
 semantic header, named primary navigation, main, and footer landmarks, plus a visible
 current-page navigation state.
@@ -108,10 +111,11 @@ announced validation summary; errors use text, borders, and color rather than co
 alone.
 
 Flight search uses a textual “Updating flight results…” status while enhanced requests
-are active. The reusable result partial is a polite live region and preserves semantic
-`ul`/`li` flight cards, keyboard-operable detail links, validation alerts, and distinct
-initial and no-match empty states. Complete-page and partial responses use the same
-result markup.
+are active. The complete page owns a stable polite, atomic live-region wrapper, and
+HTMX replaces only its contents with the reusable result partial. That partial
+preserves semantic `ul`/`li` flight cards, keyboard-operable detail links, validation
+alerts, and distinct initial and no-match empty states. Complete-page and partial
+responses use the same inner result markup.
 
 The stylesheet uses flexible containers, wrapping flex and grid layouts, overflow-safe
 sizing, and a narrow-screen media query. Navigation, controls, and buttons become

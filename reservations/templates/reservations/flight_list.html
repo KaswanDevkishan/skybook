@@ -18,7 +18,7 @@
         hx-get="{% url 'reservations:flight_list' %}"
         hx-trigger="change from:#id_origin, change from:#id_destination, change from:#id_departure_date, submit"
         hx-target="#flight-results"
-        hx-swap="outerHTML"
+        hx-swap="innerHTML"
         hx-indicator="#flight-search-indicator"
     >
         <div class="form-grid">
@@ -43,5 +43,12 @@
     </form>
 </section>
 
-{% include "reservations/partials/flight_results.html" %}
+<section class="results-section"
+    id="flight-results"
+    aria-labelledby="results-heading"
+    aria-live="polite"
+    aria-atomic="true"
+>
+    {% include "reservations/partials/flight_results.html" %}
+</section>
 {% endblock %}

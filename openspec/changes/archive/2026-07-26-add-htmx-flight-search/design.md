@@ -41,16 +41,17 @@ Putting the attributes on individual controls was rejected because it would dupl
 configuration and makes complete-form serialization less obvious. Custom JavaScript
 listeners were rejected because HTMX attributes cover the interaction.
 
-### Replace one self-contained result region
+### Keep the live-region owner stable
 
-The reusable partial will own a section with the stable `flight-results` ID. The form
-will target `#flight-results` and use `outerHTML`, allowing every response to replace
-the complete region while retaining the same stable ID for later requests. The partial
-will include the results heading, validation summary when applicable, semantic
-`ul`/`li` flight cards, and the empty state.
+The complete-page template will own a section with the stable `flight-results` ID,
+`aria-live="polite"`, and `aria-atomic="true"`. The form will target that section and
+use `innerHTML`, so every response replaces only its contents. The live-region node
+therefore remains connected across updates. The reusable partial will contain the
+results heading, validation summary when applicable, semantic `ul`/`li` flight cards,
+and the empty state.
 
-Replacing `innerHTML` was considered, but `outerHTML` keeps the partial self-contained
-and prevents the full-page template from duplicating the result-region wrapper.
+Replacing the section with `outerHTML` was rejected because removing and recreating
+the node that owns the live-region semantics can make announcements unreliable.
 Replacing the entire page or form was rejected because Exercise 10 calls for a focused
 result update and stable controls.
 
@@ -81,17 +82,17 @@ partial and retains Django's labeled fields and submitted control values.
 
 ### Pin HTMX in the shared base
 
-The base template will load a specific HTMX 2.x patch version from a CDN. The exact
-version, URL, and integrity metadata will be asserted in tests and documented so an
-upstream release cannot silently change runtime behavior. Vendoring was considered,
-but a pinned script is sufficient for this course-sized interaction and avoids adding
-a frontend build pipeline.
+The base template will load a specific HTMX 2.x patch version from a CDN and defer its
+execution. The exact version, URL, integrity metadata, and deferred loading will be
+asserted in tests and documented so an upstream release cannot silently change runtime
+behavior. Vendoring was considered, but a pinned script is sufficient for this
+course-sized interaction and avoids adding a frontend build pipeline.
 
 ## Risks / Trade-offs
 
 - [Automatic changes can issue several GETs while selecting search criteria] → Scope
-  triggers to the three controls and use a short declarative delay where useful; every
-  intermediate response remains safe and idempotent.
+  triggers to the three controls; every intermediate response remains safe and
+  idempotent.
 - [A CDN outage disables HTMX] → The form remains a standard GET form and the submit
   button provides full-page navigation.
 - [Screen readers differ in live-region announcement behavior] → Use visible status
