@@ -1,22 +1,20 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Flights | SkyBook</title>
-  </head>
-  <body>
-    <h1>Flights</h1>
-    <ul>
-      {% for flight in flights %}
+{% extends "reservations/base.html" %}
+
+{% block title %}Flights | SkyBook{% endblock %}
+
+{% block content %}
+<h2>Flights</h2>
+
+<ul>
+    {% for flight in flights %}
         <li>
-          <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
-            {{ flight }}
-          </a>
-          — {{ flight.departure_time }}
+            <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
+                {{ flight }}
+            </a>
+            — {{ flight.departure_time }}
         </li>
-      {% empty %}
+    {% empty %}
         <li>No flights are currently scheduled.</li>
-      {% endfor %}
-    </ul>
-  </body>
-</html>
+    {% endfor %}
+</ul>
+{% endblock %}

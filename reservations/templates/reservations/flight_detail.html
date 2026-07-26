@@ -1,20 +1,21 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>{{ flight }} | SkyBook</title>
-  </head>
-  <body>
-    <h1>{{ flight }}</h1>
-    <dl>
-      <dt>Airline</dt>
-      <dd>{{ flight.airline }}</dd>
-      <dt>Route</dt>
-      <dd>{{ flight.origin }} to {{ flight.destination }}</dd>
-      <dt>Departure</dt>
-      <dd>{{ flight.departure_time }}</dd>
-      <dt>Arrival</dt>
-      <dd>{{ flight.arrival_time }}</dd>
-    </dl>
-  </body>
-</html>
+{% extends "reservations/base.html" %}
+
+{% block title %}{{ flight }} | SkyBook{% endblock %}
+
+{% block content %}
+<h2>{{ flight }}</h2>
+
+<dl>
+    <dt>Airline</dt>
+    <dd>{{ flight.airline }}</dd>
+
+    <dt>Route</dt>
+    <dd>{{ flight.origin }} to {{ flight.destination }}</dd>
+
+    <dt>Departure</dt>
+    <dd>{{ flight.departure_time }}</dd>
+
+    <dt>Arrival</dt>
+    <dd>{{ flight.arrival_time }}</dd>
+</dl>
+{% endblock %}

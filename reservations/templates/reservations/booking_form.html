@@ -1,35 +1,41 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Booking form | SkyBook</title>
-  </head>
-  <body>
-    <h1>Booking form</h1>
-    <p>This placeholder form does not create a booking.</p>
-    <form method="post" action="{% url 'reservations:booking_submit' %}">
-      {% csrf_token %}
-      <div>
+{% extends "reservations/base.html" %}
+
+{% block title %}Booking Form | SkyBook{% endblock %}
+
+{% block content %}
+<h2>Booking form</h2>
+
+<p>This placeholder form does not create a booking.</p>
+
+<form method="post" action="{% url 'reservations:booking_submit' %}">
+    {% csrf_token %}
+
+    <div>
         <label for="passenger_name">Passenger name</label>
         <input
-          id="passenger_name"
-          name="passenger_name"
-          type="text"
-          value="{{ passenger_name|default:'' }}"
+            id="passenger_name"
+            name="passenger_name"
+            type="text"
+            value="{{ passenger_name|default:'' }}"
         >
-        {% if errors.passenger_name %}<p>{{ errors.passenger_name }}</p>{% endif %}
-      </div>
-      <div>
+        {% if errors.passenger_name %}
+            <p>{{ errors.passenger_name }}</p>
+        {% endif %}
+    </div>
+
+    <div>
         <label for="passenger_email">Passenger email</label>
         <input
-          id="passenger_email"
-          name="passenger_email"
-          type="email"
-          value="{{ passenger_email|default:'' }}"
+            id="passenger_email"
+            name="passenger_email"
+            type="email"
+            value="{{ passenger_email|default:'' }}"
         >
-        {% if errors.passenger_email %}<p>{{ errors.passenger_email }}</p>{% endif %}
-      </div>
-      <button type="submit">Submit</button>
-    </form>
-  </body>
-</html>
+        {% if errors.passenger_email %}
+            <p>{{ errors.passenger_email }}</p>
+        {% endif %}
+    </div>
+
+    <button type="submit">Submit</button>
+</form>
+{% endblock %}

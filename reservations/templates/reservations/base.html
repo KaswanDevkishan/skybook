@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}SkyBook{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <h1>SkyBook</h1>
+
+        <nav>
+            <a href="{% url 'reservations:home' %}">Home</a>
+            <a href="{% url 'reservations:flight_list' %}">Flights</a>
+            <a href="{% url 'reservations:booking_new' %}">Book a Flight</a>
+        </nav>
+    </header>
+
+    <main>
+        {% if messages %}
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer>
+        <p>SkyBook Web Engineering Project</p>
+    </footer>
+</body>
+</html>
