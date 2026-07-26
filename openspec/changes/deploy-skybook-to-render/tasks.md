@@ -17,6 +17,8 @@
 - [x] 2.4 Configure `SECURE_PROXY_SSL_HEADER`, HTTPS redirect, secure session cookies,
   and secure CSRF cookies for non-debug Render operation without weakening host or CSRF
   validation.
+- [x] 2.5 Fail Render configuration when neither its external hostname nor non-empty
+  explicit host and trusted-origin values are available.
 
 ## 3. Static Files and Production Server
 
@@ -33,9 +35,10 @@
 - [x] 4.1 Add `render.yaml` for a GitHub `main`-branch Python web service and managed
   PostgreSQL database, wiring `DATABASE_URL` from the database and leaving secret
   values generated or dashboard-managed.
-- [x] 4.2 Configure a frozen `uv` dependency install plus `collectstatic --noinput` as
-  the build command, `python manage.py migrate` as the pre-deploy command, Gunicorn as
-  the start command, and `/health/` as the health-check path.
+- [x] 4.2 Pin Python 3.12.8 and configure one fail-fast free-tier build command that
+  installs frozen production dependencies, migrates, and runs `collectstatic
+  --noinput`, with Gunicorn as the start command and `/health/` as the health-check
+  path.
 - [x] 4.3 Review the Blueprint and deployment diff to confirm existing migrations,
   schema, public routes, health behavior, and duplicate-seat protection remain
   unchanged.
@@ -51,8 +54,9 @@
   `STATIC_ROOT`, Render manifest storage, proxy SSL configuration, HTTPS redirect, and
   secure cookies.
 - [x] 5.4 Add or update deployment configuration tests covering the locked build,
-  pre-deploy migration, Gunicorn `PORT` binding, database wiring, branch, and preserved
-  health-check path.
+  free plan, build-time migration and static collection, absent `preDeployCommand`,
+  pinned Python runtime, Gunicorn `PORT` binding, database wiring, branch, and
+  preserved health-check path.
 
 ## 6. Operations Documentation and Guidance
 
@@ -60,7 +64,8 @@
   required environment variables, and exact build and start commands, referencing
   GitHub issues #23, #24, and #25 where appropriate.
 - [x] 6.2 Document safe migration and `createsuperuser` commands, static collection and
-  WhiteNoise delivery, and the requirement for persistent object storage if uploaded
+  WhiteNoise delivery, free-tier PostgreSQL expiry and Shell limitations, paid-tier
+  pre-deploy guidance, and the requirement for persistent object storage if uploaded
   media is added later.
 - [x] 6.3 Document deployment verification, common configuration/build/database/static
   troubleshooting, logs and health checks, and code/database rollback precautions.

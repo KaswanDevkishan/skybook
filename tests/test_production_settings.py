@@ -173,6 +173,63 @@ def test_render_requires_secret_key():
     assert "SECRET_KEY is required when running on Render" in error.value.stderr
 
 
+def test_render_requires_hostname_or_explicit_allowed_hosts():
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run_settings_snapshot(RENDER="true", SECRET_KEY="test-secret")
+
+    assert (
+        "RENDER_EXTERNAL_HOSTNAME or a non-empty ALLOWED_HOSTS value is required"
+        in error.value.stderr
+    )
+
+
+def test_render_rejects_explicitly_empty_allowed_hosts():
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run_settings_snapshot(
+            RENDER="true",
+            SECRET_KEY="test-secret",
+            RENDER_EXTERNAL_HOSTNAME="skybook.onrender.com",
+            ALLOWED_HOSTS=" , ",
+        )
+
+    assert "a non-empty ALLOWED_HOSTS value is required" in error.value.stderr
+
+
+def test_render_requires_trusted_origin_without_render_hostname():
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run_settings_snapshot(
+            RENDER="true",
+            SECRET_KEY="test-secret",
+            ALLOWED_HOSTS="custom.example.com",
+        )
+
+    assert "A non-empty CSRF_TRUSTED_ORIGINS value is required" in error.value.stderr
+
+
+def test_render_rejects_explicitly_empty_trusted_origins():
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run_settings_snapshot(
+            RENDER="true",
+            SECRET_KEY="test-secret",
+            RENDER_EXTERNAL_HOSTNAME="skybook.onrender.com",
+            CSRF_TRUSTED_ORIGINS=" , ",
+        )
+
+    assert "A non-empty CSRF_TRUSTED_ORIGINS value is required" in error.value.stderr
+
+
+def test_render_accepts_explicit_host_and_trusted_origin_without_render_hostname():
+    snapshot = run_settings_snapshot(
+        RENDER="true",
+        SECRET_KEY="test-secret",
+        ALLOWED_HOSTS="custom.example.com",
+        CSRF_TRUSTED_ORIGINS="https://custom.example.com",
+    )
+
+    assert snapshot["allowed_hosts"] == ["custom.example.com"]
+    assert snapshot["csrf_trusted_origins"] == ["https://custom.example.com"]
+
+
 def test_render_rejects_debug_mode():
     with pytest.raises(subprocess.CalledProcessError) as error:
         run_settings_snapshot(RENDER="true", DEBUG="true", SECRET_KEY="test-secret")
@@ -227,11 +284,15 @@ def test_render_blueprint_defines_the_production_lifecycle():
     blueprint = (PROJECT_ROOT / "render.yaml").read_text()
 
     assert "runtime: python" in blueprint
+    assert "plan: free" in blueprint
     assert "branch: main" in blueprint
     assert "autoDeployTrigger: checksPass" in blueprint
-    assert "uv sync --frozen --no-dev" in blueprint
-    assert "uv run python manage.py collectstatic --noinput" in blueprint
-    assert "preDeployCommand: uv run python manage.py migrate" in blueprint
+    assert (
+        "buildCommand: uv sync --frozen --no-dev"
+        " && uv run python manage.py migrate"
+        " && uv run python manage.py collectstatic --noinput"
+    ) in blueprint
+    assert "preDeployCommand" not in blueprint
     assert (
         "startCommand: uv run gunicorn skybook.wsgi:application --bind 0.0.0.0:$PORT"
     ) in blueprint
@@ -239,3 +300,5 @@ def test_render_blueprint_defines_the_production_lifecycle():
     assert "generateValue: true" in blueprint
     assert "property: connectionString" in blueprint
     assert "name: skybook-postgres" in blueprint
+    assert "key: PYTHON_VERSION" in blueprint
+    assert "value: 3.12.8" in blueprint

@@ -5,11 +5,12 @@ services:
     plan: free
     branch: main
     autoDeployTrigger: checksPass
-    buildCommand: uv sync --frozen --no-dev && uv run python manage.py collectstatic --noinput
-    preDeployCommand: uv run python manage.py migrate
+    buildCommand: uv sync --frozen --no-dev && uv run python manage.py migrate && uv run python manage.py collectstatic --noinput
     startCommand: uv run gunicorn skybook.wsgi:application --bind 0.0.0.0:$PORT
     healthCheckPath: /health/
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
       - key: DEBUG
         value: "false"
       - key: SECURE_HSTS_SECONDS

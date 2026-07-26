@@ -59,17 +59,31 @@ if not SECRET_KEY:
 
 render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
 local_hosts = ("localhost", "127.0.0.1", "[::1]")
-default_allowed_hosts = (render_hostname,) if IS_RENDER and render_hostname else local_hosts
+default_allowed_hosts = (
+    (render_hostname,) if IS_RENDER and render_hostname else (() if IS_RENDER else local_hosts)
+)
 ALLOWED_HOSTS = environment_list("ALLOWED_HOSTS", default=default_allowed_hosts)
+if IS_RENDER and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        "RENDER_EXTERNAL_HOSTNAME or a non-empty ALLOWED_HOSTS value is required "
+        "when running on Render."
+    )
 
 local_csrf_origins = ("http://localhost:8000", "http://127.0.0.1:8000")
 default_csrf_origins = (
-    (f"https://{render_hostname}",) if IS_RENDER and render_hostname else local_csrf_origins
+    (f"https://{render_hostname}",)
+    if IS_RENDER and render_hostname
+    else (() if IS_RENDER else local_csrf_origins)
 )
 CSRF_TRUSTED_ORIGINS = environment_list(
     "CSRF_TRUSTED_ORIGINS",
     default=default_csrf_origins,
 )
+if IS_RENDER and not CSRF_TRUSTED_ORIGINS:
+    raise ImproperlyConfigured(
+        "A non-empty CSRF_TRUSTED_ORIGINS value is required when "
+        "RENDER_EXTERNAL_HOSTNAME is unavailable on Render."
+    )
 
 
 # Application definition

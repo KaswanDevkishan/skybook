@@ -166,11 +166,13 @@ Production uses one Render Python Web Service connected to one managed Render
 PostgreSQL database:
 
 - GitHub's `main` branch is the deployment source.
-- Render installs the frozen `uv.lock` production dependency set.
-- Django collects static files during the build; WhiteNoise serves compressed,
-  content-hashed assets from `STATIC_ROOT`.
-- A pre-deploy command applies existing Django migrations to PostgreSQL.
+- Render uses Python 3.12.8 and installs the frozen `uv.lock` production dependency
+  set.
+- The free-tier build applies existing Django migrations and then collects static
+  files; WhiteNoise serves compressed, content-hashed assets from `STATIC_ROOT`.
 - Gunicorn imports `skybook.wsgi:application` and binds to Render's `PORT`.
+- Gunicorn's default single worker is adequate for this course/free-tier deployment;
+  a scaled production service can set `WEB_CONCURRENCY` later.
 - Render terminates HTTPS and forwards the original protocol to Django.
 - `/health/` remains the service health-check endpoint.
 
@@ -192,7 +194,8 @@ lifecycle. It implements [issues #23](https://github.com/KaswanDevkishan/skybook
    apply the Blueprint.
 5. Confirm Render generated `SECRET_KEY`, connected `DATABASE_URL`, and set its
    automatic `RENDER` and `RENDER_EXTERNAL_HOSTNAME` variables.
-6. Wait for the build, pre-deploy migration, and service startup to succeed.
+6. Wait for dependency installation, migration, static collection, and service startup
+   to succeed.
 7. Verify `/health/`, a page using `/static/reservations/styles.css`, application
    routes, and Render logs.
 
@@ -205,41 +208,54 @@ application variables are:
 | `DATABASE_URL` | For PostgreSQL | Render's internal database connection string, wired by the Blueprint |
 | `DEBUG` | No | Strict boolean; defaults to `false` and must remain `false` on Render |
 | `SECURE_HSTS_SECONDS` | No | HSTS duration; defaults to a cautious 3600 seconds on Render |
-| `ALLOWED_HOSTS` | Optional | Comma-separated exact hostnames; defaults to `RENDER_EXTERNAL_HOSTNAME` on Render and localhost names locally |
-| `CSRF_TRUSTED_ORIGINS` | Optional | Comma-separated origins including schemes; defaults to the Render HTTPS origin or local development origins |
+| `ALLOWED_HOSTS` | Conditional | Comma-separated exact hostnames; required when Render does not supply `RENDER_EXTERNAL_HOSTNAME`, with localhost defaults only outside Render |
+| `CSRF_TRUSTED_ORIGINS` | Conditional | Comma-separated origins including schemes; defaults to the Render HTTPS origin, but must be explicit when that hostname is unavailable |
 | `DJANGO_DB_PATH` | Local only | Optional path overriding the local SQLite file |
 
 Accepted boolean values are `true`, `false`, `1`, `0`, `yes`, `no`, `on`, and `off`
 (case-insensitive). Invalid values fail configuration. Render also rejects
-`DEBUG=true` and a missing `SECRET_KEY`.
+`DEBUG=true`, a missing `SECRET_KEY`, and missing or empty Render host/origin
+configuration.
 
 The Blueprint uses these exact lifecycle commands:
 
 ```bash
 # Build
-uv sync --frozen --no-dev && uv run python manage.py collectstatic --noinput
-
-# Pre-deploy migration
-uv run python manage.py migrate
+uv sync --frozen --no-dev && uv run python manage.py migrate && uv run python manage.py collectstatic --noinput
 
 # Start
 uv run gunicorn skybook.wsgi:application --bind 0.0.0.0:$PORT
 ```
 
-Do not use `runserver` in production. To apply migrations manually, first inspect the
-plan and then run the migration from a Render Shell attached to the web service:
+The `&&` chaining stops the build immediately if dependency installation, migration,
+or static collection fails. Migrations run during the build because Render
+pre-deploy commands and Shell access are unavailable to free web services. If the
+service is upgraded to a paid plan, preferably move migration back to a
+`preDeployCommand` so it runs as a distinct release step.
+
+The Blueprint injects Render PostgreSQL's internal `DATABASE_URL`; `ssl_require` is
+not necessary for that internal connection. Never commit either the internal or
+external connection URL.
+
+Free Render PostgreSQL databases expire 30 days after creation and are later deleted
+unless upgraded. Treat the course database as temporary and preserve any required data
+before expiry.
+
+Do not use `runserver` in production. Free web services have no Render Shell, so
+manual production management commands require another safe execution path. To create
+a superuser on the free plan, temporarily set `DATABASE_URL` in a local terminal to
+the database's Render external connection URL and run the interactive command:
 
 ```bash
-uv run python manage.py showmigrations
-uv run python manage.py migrate
+read -r -s "SKYBOOK_RENDER_DATABASE_URL?Render external DATABASE_URL: "
+DATABASE_URL="$SKYBOOK_RENDER_DATABASE_URL" uv run python manage.py createsuperuser
+unset SKYBOOK_RENDER_DATABASE_URL
 ```
 
-Create an administrator only through an interactive Render Shell. Do not place the
-password in a command, Blueprint, log, or environment file:
-
-```bash
-uv run python manage.py createsuperuser
-```
+The silent prompt keeps the URL out of the command history; clear the variable even if
+the command is interrupted. Never save the URL in the repository, `.env`, command
+scripts, screenshots, or logs. A paid service can instead use Render Shell or an
+authorized one-off job.
 
 ## Verification
 
@@ -303,8 +319,9 @@ CI runs dependency installation, Ruff formatting and lint checks, and Pytest.
   hostnames without schemes in `ALLOWED_HOSTS`; trusted CSRF origins require
   `https://`.
 - **Database connection or migration failure:** confirm `DATABASE_URL` is wired from
-  `skybook-postgres`, inspect `showmigrations`, and retry only after identifying the
-  failed operation. Never replace production PostgreSQL with an app-local SQLite file.
+  `skybook-postgres`, inspect the build log, and redeploy only after identifying the
+  failed operation. Free services cannot inspect it through Render Shell. Never
+  replace production PostgreSQL with an app-local SQLite file.
 - **Missing static assets:** inspect build logs for `collectstatic`, confirm WhiteNoise
   follows `SecurityMiddleware`, and redeploy after fixing any missing manifest entry.
 - **Redirect loop or CSRF failure:** preserve Render's forwarded-protocol handling and
@@ -313,11 +330,14 @@ CI runs dependency installation, Ruff formatting and lint checks, and Pytest.
   and Render service events before changing application behavior.
 
 For a code rollback, redeploy the previous known-good Render deploy or revert the
-offending commit and let CI-gated deployment rebuild it. Keep PostgreSQL intact.
+offending commit and let CI-gated deployment rebuild it. The selected revision's build
+will run migrations again, so review its migration state before redeploying. Keep
+PostgreSQL intact.
 Database rollback is a separate, higher-risk operation: prefer a forward corrective
-migration. Reverse a migration only after confirming it is reversible and reviewing
-its data impact; restore a Render backup when recovery requires returning data to an
-earlier state.
+migration in a new revision. Reverse a migration only through an authorized paid
+Shell/one-off job or a carefully secured local connection after confirming it is
+reversible and reviewing its data impact. Free-plan backup and retention limitations
+mean an earlier database state may not be recoverable.
 
 ## OpenSpec and Review
 

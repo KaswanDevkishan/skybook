@@ -24,6 +24,11 @@ convenient non-secret localhost defaults outside Render.
 - **WHEN** Django loads in the Render environment without `SECRET_KEY`
 - **THEN** configuration fails without using a source-controlled production secret
 
+#### Scenario: Production hostname configuration is absent
+- **WHEN** Django loads on Render without `RENDER_EXTERNAL_HOSTNAME` and without a
+  non-empty explicit `ALLOWED_HOSTS` and corresponding trusted origin
+- **THEN** configuration fails instead of silently allowing localhost
+
 #### Scenario: Debug environment variable is absent
 - **WHEN** Django loads without an explicit `DEBUG` value
 - **THEN** debug mode is false
@@ -79,20 +84,20 @@ retain Django host and CSRF-origin validation.
   wildcard hosts, or disabled CSRF protection
 
 ### Requirement: Reproducible Render service lifecycle
-The repository SHALL describe a Render web service deployed from GitHub `main`, using
-a locked dependency and static build, a distinct safe migration step, Gunicorn with
+The repository SHALL describe a free-plan Render web service deployed from GitHub
+`main`, using a fully pinned Python 3.12 runtime and one fail-fast build that installs
+locked dependencies, migrates, and collects static assets, plus Gunicorn with
 `skybook.wsgi:application` bound to Render's `PORT`, Render PostgreSQL, and `/health/`
 as its health check.
 
 #### Scenario: Render builds a revision
 - **WHEN** a selected `main` revision is deployed
-- **THEN** Render installs the frozen production dependency set and successfully
-  collects static assets
+- **THEN** Render installs the frozen production dependency set, applies existing
+  migrations, and successfully collects static assets
 
-#### Scenario: Render releases a revision
-- **WHEN** the build has succeeded
-- **THEN** existing Django migrations run against PostgreSQL before the new web process
-  receives traffic
+#### Scenario: A build step fails
+- **WHEN** dependency installation, migration, or static collection returns an error
+- **THEN** shell chaining stops the build before the service starts
 
 #### Scenario: Render starts the web service
 - **WHEN** Render provides `PORT` and executes the configured start command
@@ -116,9 +121,10 @@ import, and strict OpenSpec validation.
 
 ### Requirement: Render operations documentation
 Contributor documentation SHALL explain the production architecture, Render and GitHub
-setup, required environment variables, exact build and start commands, migrations,
-superuser creation, static delivery, future media storage, deployment verification,
-troubleshooting, and rollback without exposing credentials.
+setup, required environment variables, exact build and start commands, free-tier
+migration and Shell constraints, PostgreSQL expiry, safe superuser creation, static
+delivery, future media storage, deployment verification, troubleshooting, and rollback
+without exposing credentials.
 
 #### Scenario: Operator follows the deployment guide
 - **WHEN** an operator provisions SkyBook from the documented `main` branch workflow
