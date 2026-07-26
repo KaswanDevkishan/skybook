@@ -51,11 +51,11 @@ make the small method and validation contract visible.
 ### Treat booking input as non-persistent placeholder data
 
 The booking template will post `passenger_name` and `passenger_email` to the named
-submission URL and include CSRF protection. Submission will strip surrounding
-whitespace from both fields. If either resulting value is empty, it will render the
-same booking template with HTTP 400, field-specific error context, and the submitted
-values. Otherwise it will redirect to the named home URL without creating a model
-instance.
+submission URL and include CSRF protection. Submission will use values with
+surrounding whitespace stripped for validation. If either stripped value is empty, it
+will render the same booking template with HTTP 400, field-specific error context, and
+the original submitted values for redisplay. Otherwise it will redirect to the named
+home URL without creating a model instance.
 
 A Django `Form` and `Booking` creation were considered, but both would imply validation
 and workflow decisions—flight, seat, identity, duplicate handling—not authorized by
@@ -92,4 +92,3 @@ drift check will enforce that decision.
 - [Future booking implementation will replace this contract] → Keep URL names stable
   where practical, while treating persistence and richer validation as a separately
   proposed change.
-

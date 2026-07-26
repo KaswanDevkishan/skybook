@@ -113,9 +113,7 @@ def test_flight_detail_returns_404_for_missing_flight(client):
     assert response.status_code == 404
 
 
-def test_booking_form_renders_fields_and_csrf_token():
-    client = Client(enforce_csrf_checks=True)
-
+def test_booking_form_renders_fields_and_csrf_token(client):
     response = client.get(reverse("reservations:booking_new"))
     content = response.content.decode()
 
@@ -124,6 +122,17 @@ def test_booking_form_renders_fields_and_csrf_token():
     assert 'name="passenger_name"' in content
     assert 'name="passenger_email"' in content
     assert 'name="csrfmiddlewaretoken"' in content
+
+
+def test_booking_submission_without_csrf_token_is_forbidden():
+    client = Client(enforce_csrf_checks=True)
+
+    response = client.post(
+        reverse("reservations:booking_submit"),
+        {"passenger_name": "Aiko Tanaka", "passenger_email": "aiko@example.com"},
+    )
+
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db
