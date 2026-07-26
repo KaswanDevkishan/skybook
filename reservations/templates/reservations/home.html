@@ -1,14 +1,14 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>SkyBook</title>
-  </head>
-  <body>
-    <h1>SkyBook</h1>
-    <nav>
-      <a href="{% url 'reservations:flight_list' %}">View flights</a>
-      <a href="{% url 'reservations:booking_new' %}">Booking form</a>
-    </nav>
-  </body>
-</html>
+{% extends "reservations/base.html" %}
+
+{% block title %}Home | SkyBook{% endblock %}
+
+{% block content %}
+<h2>Welcome to SkyBook</h2>
+
+<p>Search and book flights between available cities.</p>
+
+<nav>
+    <a href="{% url 'reservations:flight_list' %}">View flights</a>
+    <a href="{% url 'reservations:booking_new' %}">Booking form</a>
+</nav>
+{% endblock %}
