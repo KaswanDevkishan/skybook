@@ -20,7 +20,7 @@ SHALL render visible form errors and no partially filtered result set.
 - **WHEN** a visitor sends GET `/flights/` while no flights exist
 - **THEN** the response has status 200 and the `flights` context is empty
 
-### Requirement: Placeholder booking form
+### Requirement: Booking form
 The `booking_new` view SHALL accept GET requests at `/booking/new/` and render
 `reservations/booking_form.html` with an unbound Django booking form containing required `seat`,
 `passenger_name`, and `passenger_email` fields. The HTML form SHALL submit by POST to the named
@@ -30,7 +30,7 @@ booking-submission route and SHALL include CSRF protection.
 - **WHEN** a visitor sends GET `/booking/new/`
 - **THEN** the response has status 200, uses `reservations/booking_form.html`, and contains the three required booking field names and a CSRF token
 
-### Requirement: Placeholder booking submission
+### Requirement: Booking submission
 The `booking_submit` view SHALL accept POST requests at `/booking/submit/`, bind
 `request.POST` to the Django booking form, and create a guest `Booking` only for valid data.
 Invalid data SHALL create no booking and SHALL redisplay `reservations/booking_form.html` with

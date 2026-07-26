@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Exercise 5 scope boundary
+### Requirement: Current exercise scope boundary
 Repository guidance SHALL identify the current work as Exercise 8 and SHALL permit proper Django
 forms for GET flight search and POST guest booking creation in addition to the existing Django
 foundation, schema, administration, and basic views. It SHALL continue to prohibit authentication
