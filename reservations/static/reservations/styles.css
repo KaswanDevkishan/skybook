@@ -1190,16 +1190,6 @@ button:hover {
     border-left: 0.3rem solid var(--color-primary);
 }
 
-.site-footer {
-    padding-block: var(--space-4);
-    color: #dce9ff;
-    background: #102a53;
-}
-
-.site-footer p {
-    margin: 0;
-}
-
 @media (max-width: 40rem) {
     .container {
         width: min(100% - 1.25rem, 70rem);

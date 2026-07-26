@@ -102,6 +102,12 @@ def test_home_and_navigation_only_link_to_connected_entry(client):
     )[0]
 
     assert response.status_code == 200
+    assert "Japan is closer than you think" in content
+    assert "Where will Japan take you next?" in content
+    assert (
+        "Search domestic routes, compare fares, and choose your perfect seat—all in one "
+        "smooth journey."
+    ) in content
     assert reverse("reservations:flight_list") in content
     assert "Booking form" not in content
     assert "Book a Flight" not in content
@@ -119,6 +125,9 @@ def test_home_and_navigation_only_link_to_connected_entry(client):
     assert "Create Account" not in content
     assert "site-name__mark" not in content
     assert "S SkyBook" not in content
+    assert "<footer" not in content
+    assert "site-footer" not in content
+    assert "SkyBook Web Engineering Project" not in content
 
 
 def test_health_returns_plain_text(client):
@@ -600,6 +609,7 @@ def test_navigation_styles_preserve_keyboard_and_responsive_behavior():
     assert "@media (max-width: 40rem)" in stylesheet
     assert ".header-layout {" in stylesheet
     assert ".nav-list {" in stylesheet
+    assert ".site-footer" not in stylesheet
 
 
 def test_jpy_template_filter_groups_whole_yen_without_decimals():

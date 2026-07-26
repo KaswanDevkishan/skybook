@@ -15,6 +15,10 @@ production configuration while preserving SQLite development.
 The first major booking redesign adds classified and priced seats, enriched flight
 results, flight-scoped seat selection, passenger details, authoritative JPY review,
 atomic guest confirmation, and a booking receipt.
+The domestic-data and homepage milestone expands the idempotent demonstration catalog
+to approximately 30–40 stable major Japanese airport or airport-served destinations,
+adds curated routes across all major regions, installs the Japan-focused homepage hero
+copy, and removes the complete site footer.
 
 The Django project package belongs in `skybook/`, the main application in
 `reservations/`, tests in `tests/`, and the management entry point is `manage.py`.
@@ -32,7 +36,11 @@ Gunicorn, a Python 3.12 PostgreSQL driver, database-URL parsing, WhiteNoise stat
 delivery, Render Blueprint configuration, secure proxy and cookie settings, production
 settings tests, and deployment documentation. Preserve ordinary full-page and HTMX
 search, the connected booking flow, migrations, health checks, and duplicate-seat
-behavior. Authentication screens, real payments, aircraft-shaped SVG seat maps,
+behavior. Preserve every existing destination row and identifier, flight endpoint and
+schedule, seat identity and price, and booking during repeated seeding. Create future
+schedules only for initially missing seeded flights and treat the catalog as
+representative demonstration data, not a complete or live aviation schedule.
+Authentication screens and navigation, real payments, aircraft-shaped SVG seat maps,
 booking dashboards, cancellation, guest lookup, round trips, external airline APIs,
 unrelated UI changes, other client-side frameworks, Docker unless genuinely required,
 Redis, Celery, workers, and file uploads remain out of scope.
@@ -49,6 +57,9 @@ Seats use Economy/Business and Window/Middle/Aisle choices with whole-yen Decima
 prices. Confirmed bookings store immutable base fare, taxes and fees, total, reference,
 and creation time. Calculate the current 10% fee authoritatively on the server and
 round half-up to whole yen.
+Seeded destinations use stable unique codes and clear English names. Seed operations
+are additive: never rename or replace an existing `City`, reroute or reschedule an
+existing `Flight`, mutate an existing `Seat`, or create, update, or delete a `Booking`.
 
 ## Setup, Development, and Quality Commands
 
@@ -87,6 +98,11 @@ overrides, required Render secrets, SQLite and PostgreSQL selection, WhiteNoise
 middleware order and manifest storage, proxy HTTPS and secure cookies, Render
 build/start/migration configuration, the health-check path, static collection, and
 Gunicorn WSGI import.
+Domestic-data tests must cover the approximate destination count, code uniqueness,
+regional route validity, repeated-run idempotency, preservation snapshots, new-flight
+seat structure and JPY pricing, full-page and HTMX search, and the connected booking
+flow. Homepage tests must cover the exact hero copy, footer absence, the SkyBook home
+link, Flights current state, and absence of placeholder authentication navigation.
 
 ## Commits and Pull Requests
 
