@@ -89,7 +89,7 @@
 - [x] 7.6 Run strict OpenSpec validation for `deploy-skybook-to-render` and inspect the
   final Git diff for credentials, collected output, lockfile drift, and unrelated
   changes.
-- [ ] 7.7 After human review, push the approved revision to GitHub `main`, apply the
+- [x] 7.7 After human review, push the approved revision to GitHub `main`, apply the
   Render Blueprint with authorized account access, and verify the build, migration,
   `/health/`, static assets, application pages, and logs before declaring deployment
   complete.
@@ -106,3 +106,14 @@
 - [x] 8.4 Document automatic course-demonstration seeding and local command usage,
   while distinguishing controlled real-production data loading.
 - [x] 8.5 Run the requested Pytest, Django, Ruff, strict OpenSpec, and diff checks.
+- [x] 8.6 Verify the live PostgreSQL database contains seeded cities, airlines, future
+  flights, and seats, and confirm the seeded cities, flight results, and seats appear
+  in the public search and booking forms.
+
+## 9. Live Deployment Verification
+
+- [x] 9.1 On 2026-07-26, verify the Render Blueprint deployment at
+  `https://skybook-33ks.onrender.com` completed successfully with PostgreSQL connected,
+  migrations and demo-data initialization running during deployment, Gunicorn serving
+  the application, WhiteNoise-delivered CSS, successful flight search and booking-form
+  population, and a successful `/health/` response.

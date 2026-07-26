@@ -4,9 +4,7 @@
 
 Define SkyBook's runnable Django foundation, SQLite development environment, admin
 integration, quality workflow, and current course-exercise feature boundary.
-
 ## Requirements
-
 ### Requirement: Runnable generated Django project
 SkyBook SHALL run as a Django project created with `django-admin`, and its main
 `reservations` application SHALL be created with `manage.py startapp`.
@@ -22,12 +20,19 @@ SkyBook SHALL run as a Django project created with `django-admin`, and its main
   applications
 
 ### Requirement: SQLite development database
-The Django development configuration SHALL use SQLite and SHALL keep local database
-files out of version control.
+The Django configuration SHALL use SQLite when `DATABASE_URL` is absent, SHALL use the
+database described by `DATABASE_URL` when it is supplied for production, and SHALL keep
+local database files and database credentials out of version control.
 
 #### Scenario: Clean development database is initialized
 - **WHEN** a contributor applies migrations without overriding database configuration
 - **THEN** Django creates or updates a local SQLite database
+
+#### Scenario: Production database is initialized
+- **WHEN** deployment applies the existing migrations with Render's PostgreSQL
+  `DATABASE_URL`
+- **THEN** Django creates or updates the production PostgreSQL schema without requiring
+  a new application schema migration
 
 ### Requirement: Administrative model access
 The Django administrative site SHALL register `City`, `Airline`, `Flight`, `Seat`, and

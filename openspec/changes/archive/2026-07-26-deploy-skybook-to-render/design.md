@@ -175,3 +175,14 @@ validation.
 
 None. The requested Render architecture, environment-variable contract, and
 no-upload constraint are sufficiently specified for implementation.
+
+## Live Deployment Verification
+
+The production deployment was verified on 2026-07-26 at
+`https://skybook-33ks.onrender.com`. The Render Blueprint completed successfully,
+connected the web service to PostgreSQL, and ran migrations and idempotent demo-data
+initialization during deployment. The live database contains cities, airlines,
+flights, and seats; the origin and destination selectors are populated; flight search
+returns results; and booking forms expose available seats. Gunicorn serves the
+application, static CSS loads through the production static-file configuration, and
+`/health/` responds successfully.

@@ -19,6 +19,17 @@ field unless a later requirement genuinely requires it.
 - **THEN** repository guidance identifies the focused production configuration,
   dependencies, tests, and documentation as permitted within Exercise 11
 
+#### Scenario: Exercise 10 HTMX feature is requested
+- **WHEN** an agent prepares or maintains the specified server-driven flight-result
+  update
+- **THEN** repository guidance identifies that focused interaction as preserved and
+  permitted within Exercise 11
+
+#### Scenario: Existing search or booking work is reviewed
+- **WHEN** an agent changes the presentation or response representation of flight search
+- **THEN** repository guidance requires the existing validation, GET fallback,
+  persistence, and database-backed duplicate-seat behavior to remain intact
+
 #### Scenario: Existing application behavior is reviewed
 - **WHEN** an agent changes settings, dependencies, static handling, or deployment
   configuration
