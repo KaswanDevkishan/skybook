@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -62,11 +63,47 @@ def test_flight_detail_route_reverses_with_flight_id():
 
 def test_home_renders_navigation_links(client):
     response = client.get(reverse("reservations:home"))
+    content = response.content.decode()
 
     assert response.status_code == 200
     assert_template_used(response, "reservations/home.html")
-    assert reverse("reservations:flight_list") in response.content.decode()
-    assert reverse("reservations:booking_new") in response.content.decode()
+    assert reverse("reservations:flight_list") in content
+    assert reverse("reservations:booking_new") in content
+    assert "<section" in content
+    assert 'aria-label="Reservation actions"' in content
+
+
+@pytest.mark.parametrize("route_name", ["home", "flight_list", "booking_new"])
+@pytest.mark.django_db
+def test_pages_render_shared_semantic_shell_and_stylesheet(client, route_name):
+    response = client.get(reverse(f"reservations:{route_name}"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'href="/static/reservations/styles.css"' in content
+    assert 'class="skip-link" href="#main-content"' in content
+    assert '<header class="site-header">' in content
+    assert '<nav aria-label="Primary navigation">' in content
+    assert '<main id="main-content"' in content
+    assert "<footer" in content
+    assert content.count("<h1") == 1
+
+
+@pytest.mark.parametrize(
+    ("route_name", "current_link"),
+    [
+        ("home", "/"),
+        ("flight_list", "/flights/"),
+        ("booking_new", "/booking/new/"),
+    ],
+)
+@pytest.mark.django_db
+def test_primary_navigation_identifies_current_page(client, route_name, current_link):
+    response = client.get(reverse(f"reservations:{route_name}"))
+    content = response.content.decode()
+
+    current_page_link = rf'<a href="{re.escape(current_link)}"\s+aria-current="page">'
+    assert re.search(current_page_link, content)
 
 
 def test_health_returns_plain_text(client):
@@ -80,10 +117,14 @@ def test_health_returns_plain_text(client):
 @pytest.mark.django_db
 def test_flight_list_renders_empty_context(client):
     response = client.get(reverse("reservations:flight_list"))
+    content = response.content.decode()
 
     assert response.status_code == 200
     assert_template_used(response, "reservations/flight_list.html")
     assert list(response.context["flights"]) == []
+    assert '<section class="panel"' in content
+    assert '<section class="results-section"' in content
+    assert 'class="empty-state"' in content
 
 
 @pytest.mark.django_db
@@ -99,6 +140,7 @@ def test_flight_list_orders_flights_by_departure_time(client, flight_factory):
     assert response.status_code == 200
     assert_template_used(response, "reservations/flight_list.html")
     assert list(response.context["flights"]) == [earlier, later]
+    assert response.content.decode().count('<article class="flight-card">') == 2
 
 
 @pytest.mark.django_db
@@ -112,6 +154,9 @@ def test_flight_list_renders_unbound_search_form(client):
     assert 'name="destination"' in content
     assert 'name="departure_date"' in content
     assert 'method="get"' in content
+    for field_name in ("origin", "destination", "departure_date"):
+        assert f'<label for="id_{field_name}">' in content
+        assert f'id="id_{field_name}"' in content
 
 
 @pytest.mark.django_db
@@ -201,6 +246,8 @@ def test_flight_list_invalid_input_shows_errors_and_no_results(client, query):
     assert response.context["form"].errors
     assert list(response.context["flights"]) == []
     assert "errorlist" in content
+    assert 'class="error-summary" role="alert"' in content
+    assert 'aria-invalid="true"' in content
 
 
 @pytest.mark.django_db
@@ -236,6 +283,8 @@ def test_flight_detail_renders_flight_fields(client, flight_factory):
     assert str(flight.destination) in content
     assert str(flight.departure_time.year) in content
     assert str(flight.arrival_time.year) in content
+    assert '<article class="flight-detail"' in content
+    assert '<dl class="detail-list">' in content
 
 
 @pytest.mark.django_db
@@ -257,6 +306,9 @@ def test_booking_form_renders_unbound_fields_and_csrf_token(client):
     assert 'name="passenger_name"' in content
     assert 'name="passenger_email"' in content
     assert 'name="csrfmiddlewaretoken"' in content
+    for field_name in ("seat", "passenger_name", "passenger_email"):
+        assert f'<label for="id_{field_name}">' in content
+        assert f'id="id_{field_name}"' in content
 
 
 @pytest.mark.django_db
@@ -333,6 +385,8 @@ def test_invalid_booking_submission_retains_values_and_creates_nothing(
     assert error_field in response.context["form"].errors
     assert data.get("passenger_name", "") in content
     assert data.get("passenger_email", "") in content
+    assert 'class="error-summary" role="alert"' in content
+    assert 'aria-invalid="true"' in content
     assert Booking.objects.count() == 0
 
 

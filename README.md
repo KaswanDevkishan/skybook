@@ -1,9 +1,8 @@
 # SkyBook
 
 SkyBook is a simple airline ticket reservation system for a Web Engineering course.
-Exercise 8 adds validated Django forms for flight search and simple guest booking to
-the existing Django application and database schema. SQLite is used for local
-development.
+Exercise 9 gives the existing Django flight search and guest-booking pages a semantic,
+responsive, and accessible interface. SQLite is used for local development.
 
 The current milestone provides:
 
@@ -16,6 +15,9 @@ The current milestone provides:
 - Basic home, searchable flight-list, flight-detail, guest-booking, and health views
 - GET-based flight search with validated city and departure-date input
 - CSRF-protected guest booking with validated seat, passenger name, and email input
+- Semantic page landmarks, skip navigation, logical headings, and accessible form
+  feedback
+- A namespaced external stylesheet with responsive layouts and visible focus states
 
 Authentication screens, payments, the interactive seat-map interface, external
 airline APIs, production styling, and the complete booking workflow are intentionally
@@ -30,6 +32,7 @@ skybook/
 ├── skybook/                  # Django project settings, URLs, ASGI, and WSGI
 ├── reservations/             # Main domain application
 │   ├── migrations/
+│   ├── static/reservations/
 │   ├── templates/reservations/
 │   ├── admin.py
 │   ├── apps.py
@@ -81,6 +84,26 @@ submissions create a guest `Booking` by mapping `passenger_name` and `passenger_
 to `guest_name` and `guest_email`; `Booking.user` remains null. Form validation
 improves error reporting, while the existing database uniqueness constraint remains
 the final protection against stale or concurrent duplicate-seat requests.
+
+## Interface and Accessibility
+
+All public HTML pages extend `reservations/base.html` and load
+`reservations/static/reservations/styles.css` through Django's static-file system.
+The shared page shell provides a skip-to-content link, a stable `main-content` target,
+semantic header, named primary navigation, main, and footer landmarks, plus a visible
+current-page navigation state.
+
+Page templates use logical headings and semantic sections, articles, forms, and detail
+lists. Django continues to render visible labels associated with every form control.
+Invalid bound forms retain submitted values and field-level errors while adding an
+announced validation summary; errors use text, borders, and color rather than color
+alone.
+
+The stylesheet uses flexible containers, wrapping flex and grid layouts, overflow-safe
+sizing, and a narrow-screen media query. Navigation, controls, and buttons become
+full-width where appropriate on small screens. Links and controls have visible
+`:focus` and `:focus-visible` indicators. No inline CSS, JavaScript framework, or
+frontend framework is required.
 
 ## Setup
 
@@ -150,6 +173,11 @@ is defined by `implement-django-forms` and relates to
 [issue #11](https://github.com/KaswanDevkishan/skybook/issues/11),
 [issue #12](https://github.com/KaswanDevkishan/skybook/issues/12), and
 [issue #13](https://github.com/KaswanDevkishan/skybook/issues/13).
+Exercise 9 interface work is defined by `improve-exercise-9-interface` and relates to
+[issue #15](https://github.com/KaswanDevkishan/skybook/issues/15) (responsive SkyBook
+styling), [issue #16](https://github.com/KaswanDevkishan/skybook/issues/16) (responsive
+layout), and [issue #17](https://github.com/KaswanDevkishan/skybook/issues/17)
+(interface accessibility).
 
 AI-assisted changes require human review before commit. Inspect the final state with:
 

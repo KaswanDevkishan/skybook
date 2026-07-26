@@ -1,35 +1,61 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>{% block title %}SkyBook{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'reservations/styles.css' %}">
 </head>
 <body>
-    <header>
-        <h1>SkyBook</h1>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
 
-        <nav>
-            <a href="{% url 'reservations:home' %}">Home</a>
-            <a href="{% url 'reservations:flight_list' %}">Flights</a>
-            <a href="{% url 'reservations:booking_new' %}">Book a Flight</a>
-        </nav>
+    <header class="site-header">
+        <div class="container header-layout">
+            <a class="site-name" href="{% url 'reservations:home' %}">SkyBook</a>
+
+            <nav aria-label="Primary navigation">
+                <ul class="nav-list">
+                    <li>
+                        <a href="{% url 'reservations:home' %}"
+                            {% if request.resolver_match.url_name == "home" %}aria-current="page"{% endif %}>
+                            Home
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'reservations:flight_list' %}"
+                            {% if request.resolver_match.url_name == "flight_list" or request.resolver_match.url_name == "flight_detail" %}aria-current="page"{% endif %}>
+                            Flights
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'reservations:booking_new' %}"
+                            {% if request.resolver_match.url_name == "booking_new" or request.resolver_match.url_name == "booking_submit" %}aria-current="page"{% endif %}>
+                            Book a Flight
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
     </header>
 
-    <main>
+    <main id="main-content" class="container main-content" tabindex="-1">
         {% if messages %}
-            {% for message in messages %}
-                <p>{{ message }}</p>
-            {% endfor %}
+            <section class="messages" aria-label="Notifications">
+                {% for message in messages %}
+                    <p role="status">{{ message }}</p>
+                {% endfor %}
+            </section>
         {% endif %}
 
         {% block content %}
         {% endblock %}
     </main>
 
-    <footer>
-        <p>SkyBook Web Engineering Project</p>
+    <footer class="site-footer">
+        <div class="container">
+            <p>SkyBook Web Engineering Project</p>
+        </div>
     </footer>
 </body>
 </html>

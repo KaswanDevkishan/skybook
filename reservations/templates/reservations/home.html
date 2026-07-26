@@ -3,12 +3,16 @@
 {% block title %}Home | SkyBook{% endblock %}
 
 {% block content %}
-<h2>Welcome to SkyBook</h2>
+<section class="hero" aria-labelledby="welcome-heading">
+    <p class="eyebrow">Simple flight reservations</p>
+    <h1 id="welcome-heading">Welcome to SkyBook</h1>
+    <p class="lead">Search and book flights between available cities.</p>
 
-<p>Search and book flights between available cities.</p>
-
-<nav>
-    <a href="{% url 'reservations:flight_list' %}">View flights</a>
-    <a href="{% url 'reservations:booking_new' %}">Booking form</a>
-</nav>
+    <nav class="action-list" aria-label="Reservation actions">
+        <a class="button" href="{% url 'reservations:flight_list' %}">View flights</a>
+        <a class="button button-secondary" href="{% url 'reservations:booking_new' %}">
+            Booking form
+        </a>
+    </nav>
+</section>
 {% endblock %}
