@@ -141,6 +141,12 @@ and Render execution guidance.
 6. Deploy through the existing Render sequence; the idempotent command adds only
    missing catalog rows.
 
+Live verification completed successfully on July 26, 2026 at
+`https://skybook-33ks.onrender.com`. The deployed service exposes 36 Japanese
+destinations and domestic routes, repeated seeding preserves bookings and schedules,
+the refined hero and footer removal are present, and flight search and booking remain
+functional.
+
 Rollback restores the previous application files but does not delete newly added demo
 rows. If demo rows ever require removal, that must be a separately reviewed,
 reference-aware data operation; bookings and existing schedules must never be deleted

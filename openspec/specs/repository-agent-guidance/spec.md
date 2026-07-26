@@ -37,56 +37,39 @@ verification, and human review.
   constraints
 
 ### Requirement: Current exercise scope boundary
-Repository guidance SHALL identify the current work as Exercise 11 and SHALL permit the
-Render deployment foundation: Gunicorn, Render PostgreSQL with a SQLite development
-fallback, WhiteNoise static delivery, environment-based production configuration,
-deployment tests, infrastructure configuration, and operational documentation. It
-SHALL preserve the existing Django foundation, schema, administration, public views,
-validated GET flight search, POST guest booking creation, semantic responsive
-interface, and server-driven HTMX interaction. It SHALL continue to prohibit
-authentication screens, payments, an interactive seat-map interface, checkout,
-external airline APIs, unrelated interface changes, other client-side frameworks,
-Docker unless genuinely required, Redis, Celery, workers, file uploads, and a complete
-booking workflow. It SHALL direct contributors not to add seat class or another schema
-field unless a later requirement genuinely requires it.
+Repository guidance SHALL identify the domestic-data and homepage milestone as
+permitting approximately 30–40 stable major Japanese airport or airport-served
+destinations, curated regional demonstration routes, non-destructive idempotent
+flight/seat seeding, the supplied homepage hero copy, and complete footer removal. It
+SHALL preserve the connected booking milestone, Django, full-page and HTMX search,
+database duplicate-seat protection, immutable booking data, SQLite development, and
+Render PostgreSQL behavior. It SHALL continue to prohibit accounts and authentication
+navigation, real payments, exhaustive or live schedules, external airline APIs,
+copied branding, model-backed aircraft geometry, unrelated redesign, Docker, Redis,
+Celery, and workers.
 
-#### Scenario: Exercise 11 deployment work is requested
-- **WHEN** an agent prepares the specified Render production deployment
-- **THEN** repository guidance identifies the focused production configuration,
-  dependencies, tests, and documentation as permitted within Exercise 11
+#### Scenario: Agent implements the domestic data change
+- **WHEN** an agent reads repository guidance before implementation
+- **THEN** destination, route, seat, homepage, footer, preservation, and documentation
+  work is permitted and the existing booking and deployment invariants are explicit
 
-#### Scenario: Exercise 10 HTMX feature is requested
-- **WHEN** an agent prepares or maintains the specified server-driven flight-result
-  update
-- **THEN** repository guidance identifies that focused interaction as preserved and
-  permitted within Exercise 11
-
-#### Scenario: Existing search or booking work is reviewed
-- **WHEN** an agent changes the presentation or response representation of flight search
-- **THEN** repository guidance requires the existing validation, GET fallback,
-  persistence, and database-backed duplicate-seat behavior to remain intact
-
-#### Scenario: Existing application behavior is reviewed
-- **WHEN** an agent changes settings, dependencies, static handling, or deployment
-  configuration
-- **THEN** repository guidance requires current routes, validation, persistence,
-  migrations, and database-backed duplicate-seat behavior to remain intact
-
-#### Scenario: Deferred feature is requested
-- **WHEN** a requested task would add a prohibited infrastructure component, product
-  feature, schema change, or unrelated interface change
-- **THEN** the guidance identifies that work as outside the Exercise 11 scope
+#### Scenario: Agent considers a later feature
+- **WHEN** implementation would add authentication navigation, complete or live
+  schedules, external APIs, payment, booking management, or unrelated infrastructure
+- **THEN** guidance identifies that work as outside the current change
 
 ### Requirement: Domain constraints remain documented
-Guidance SHALL identify `City`, `Airline`, `Flight`, `Seat`, Django's built-in
-authentication user, and `Booking` as implemented schema entities. It SHALL document
-guest and registered-user bookings and database-backed prevention of duplicate seat
-bookings as implemented invariants.
+Guidance SHALL identify `City`, `Airline`, `Flight`, classified and priced `Seat`,
+Django's built-in authentication user, and immutable-price `Booking` as implemented
+entities. It SHALL document stable unique destination codes, preservation of existing
+destination rows and flight schedules, guest and registered-user data compatibility,
+flight-scoped seat validation, authoritative JPY pricing, non-mutating repeated
+seeding, and database-backed prevention of duplicate seat bookings.
 
-#### Scenario: Agent reviews booking requirements
+#### Scenario: Agent reviews domestic booking requirements
 - **WHEN** an agent reads project documentation
-- **THEN** it distinguishes implemented schema guarantees from deferred user-facing
-  booking functionality
+- **THEN** it can distinguish representative seeded destination and route data from a
+  complete live schedule and can identify all preserved booking invariants
 
 ### Requirement: Repository hygiene
 Guidance and Git exclusions SHALL cover tokens, passwords, Render credentials,

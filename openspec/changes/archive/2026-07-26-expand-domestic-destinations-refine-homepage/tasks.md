@@ -62,4 +62,15 @@
 - [x] 6.4 Run `uv run python manage.py check`
 - [x] 6.5 Run `uv run python manage.py makemigrations --check --dry-run`
 - [x] 6.6 Run strict OpenSpec validation for the change
-- [x] 6.7 Run `git diff --check` and confirm no commit, push, or archive was performed
+- [x] 6.7 Run `git diff --check` and confirm no commit or push was performed
+
+## 7. Live Render Verification
+
+- [x] 7.1 Verify 36 Japanese destinations and domestic routes are available in the
+  live flight search
+- [x] 7.2 Verify repeated production seeding preserves existing bookings and schedules
+- [x] 7.3 Verify the Japan-focused homepage hero is visible and the shared footer is
+  absent
+- [x] 7.4 Verify the live flight-search and booking journey remains functional
+- [x] 7.5 Record successful verification of
+  `https://skybook-33ks.onrender.com`
