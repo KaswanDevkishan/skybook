@@ -202,6 +202,8 @@ class Booking(models.Model):
             raise ValidationError("Guest bookings require a guest name and email address.")
 
     def save(self, *args, **kwargs):
+        # Fallback for non-service creation paths such as admin and tests;
+        # create_guest_booking is the authoritative normal booking path.
         if self._state.adding and not any((self.base_fare, self.taxes_and_fees, self.total_price)):
             from reservations.pricing import calculate_booking_price
 

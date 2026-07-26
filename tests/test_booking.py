@@ -44,6 +44,14 @@ def test_whole_yen_price_calculation(fare, taxes, total):
     assert price.total_price == Decimal(total)
 
 
+def test_fractional_base_fare_rounds_half_up_to_whole_yen():
+    price = calculate_booking_price(Decimal("100.5"))
+
+    assert price.base_fare == Decimal("101")
+    assert price.taxes_and_fees == Decimal("10")
+    assert price.total_price == Decimal("111")
+
+
 def test_booking_reference_is_unique_and_readable(flight):
     first = Booking.objects.create(
         seat=Seat.objects.create(flight=flight, seat_number="1A"),
@@ -118,3 +126,29 @@ def test_service_rejects_booked_seat(flight):
             passenger_name="Second",
             passenger_email="second@example.com",
         )
+
+
+def test_service_rejects_seat_from_another_flight(flight):
+    other_destination = City.objects.create(name="Sapporo", code="SPK")
+    other_flight = Flight.objects.create(
+        airline=flight.airline,
+        flight_number="202",
+        origin=flight.origin,
+        destination=other_destination,
+        departure_time=flight.departure_time,
+        arrival_time=flight.arrival_time,
+    )
+    other_seat = Seat.objects.create(flight=other_flight, seat_number="1A")
+
+    with pytest.raises(
+        SeatUnavailableError,
+        match="The selected seat does not belong to this flight.",
+    ):
+        create_guest_booking(
+            flight=flight,
+            seat=other_seat,
+            passenger_name="Guest",
+            passenger_email="guest@example.com",
+        )
+
+    assert not Booking.objects.filter(seat=other_seat).exists()

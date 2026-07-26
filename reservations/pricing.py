@@ -13,7 +13,7 @@ class BookingPrice:
 
 
 def calculate_booking_price(base_fare):
-    base_fare = Decimal(base_fare).quantize(WHOLE_YEN)
+    base_fare = Decimal(base_fare).quantize(WHOLE_YEN, rounding=ROUND_HALF_UP)
     taxes_and_fees = (base_fare * TAX_AND_FEE_RATE).quantize(WHOLE_YEN, rounding=ROUND_HALF_UP)
     return BookingPrice(
         base_fare=base_fare,

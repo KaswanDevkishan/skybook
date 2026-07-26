@@ -106,8 +106,10 @@ multiple fee components would add domain detail not requested for this academic 
 References use an uppercase `SKY-` prefix followed by a short alphabet that omits
 ambiguous characters. A cryptographically secure generator produces candidates, the
 database unique constraint is authoritative, and creation retries a bounded number of
-reference collisions inside transaction savepoints. Seat uniqueness failures are
-reported as availability conflicts rather than reference retries.
+reference collisions. Each reference attempt uses its own `transaction.atomic` block,
+re-locks the seat, and rechecks availability before creating the booking. Collisions
+retry up to the configured limit. Seat uniqueness failures are reported as
+availability conflicts rather than reference retries.
 
 Alternatives considered: sequential primary keys disclose volume and are less
 user-friendly; UUIDs are unnecessarily long for a classroom confirmation code.
@@ -196,8 +198,8 @@ destination; adding a disabled Sign in item advertises behavior outside this cha
 - [A seat becomes booked between review and confirm] → Recheck inside `transaction.atomic`
   and retain the database unique constraint; return an accessible conflict error.
 - [Booking-reference collision handling masks a seat conflict] → Isolate candidate
-  inserts with savepoints and distinguish the violated constraint or recheck seat
-  occupancy before retrying only a reference collision.
+  inserts in separate atomic attempts that re-lock and recheck seat occupancy before
+  retrying only a reference collision.
 - [Availability annotations become database-specific] → Use Django ORM expressions
   and aggregate filters covered on SQLite, avoiding PostgreSQL-only SQL.
 - [Confirmation references are discoverable] → Use high-entropy random references;

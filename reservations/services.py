@@ -20,7 +20,7 @@ def create_guest_booking(*, flight, seat, passenger_name, passenger_email):
             with transaction.atomic():
                 locked_seat = Seat.objects.select_for_update().get(pk=seat.pk)
                 if locked_seat.flight_id != flight.pk:
-                    raise ValueError("The selected seat does not belong to this flight.")
+                    raise SeatUnavailableError("The selected seat does not belong to this flight.")
                 if Booking.objects.filter(seat=locked_seat).exists():
                     raise SeatUnavailableError("This seat is already booked.")
 
