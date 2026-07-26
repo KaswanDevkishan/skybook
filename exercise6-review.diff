@@ -1,0 +1,982 @@
+diff --git a/README.md b/README.md
+index a37015f..1416488 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,8 @@
+ # SkyBook
+ 
+ SkyBook is a simple airline ticket reservation system for a Web Engineering course.
+-Exercise 5 establishes a runnable Django application and its initial database schema.
+-SQLite is used for local development.
++Exercise 5 establishes a runnable Django application, its initial database schema, and
++a small set of basic public views. SQLite is used for local development.
+ 
+ The current milestone provides:
+ 
+@@ -12,9 +12,11 @@ The current milestone provides:
+ - Guest bookings through a nullable `Booking.user`
+ - Database constraints for valid routes, times, scheduled flights, seats, and bookings
+ - Django admin registration, migrations, model tests, and coverage
++- Basic home, ordered flight-list, flight-detail, placeholder booking, and health views
+ 
+-Flight-search pages, authentication screens, payments, the seat-map interface, and the
+-complete booking workflow are intentionally deferred.
++Flight search and filtering, authentication screens, payments, the interactive
++seat-map interface, booking persistence through the placeholder form, and the complete
++booking workflow are intentionally deferred.
+ 
+ ## Project Structure
+ 
+@@ -24,10 +26,13 @@ skybook/
+ ├── skybook/                  # Django project settings, URLs, ASGI, and WSGI
+ ├── reservations/             # Main domain application
+ │   ├── migrations/
++│   ├── templates/reservations/
+ │   ├── admin.py
+ │   ├── apps.py
+-│   └── models.py
+-├── tests/                    # Pytest model and constraint tests
++│   ├── models.py
++│   ├── urls.py
++│   └── views.py
++├── tests/                    # Pytest model, constraint, URL, and view tests
+ ├── openspec/                 # Specifications and active changes
+ ├── pyproject.toml            # Dependencies and quality-tool configuration
+ ├── uv.lock                   # Locked dependency versions
+@@ -48,6 +53,22 @@ skybook/
+ The database prevents two bookings from referencing the same seat. This invariant does
+ not depend on browser validation or a future seat-map interface.
+ 
++## Public HTTP Endpoints
++
++All application routes use the `reservations` URL namespace.
++
++| Name | Method and URL | Arguments or fields | Response |
++| --- | --- | --- | --- |
++| `reservations:home` | `GET /` | None | Renders the home page with links to the flight list and booking form; status 200 |
++| `reservations:flight_list` | `GET /flights/` | None | Renders all `Flight` records ordered by ascending departure time; status 200 |
++| `reservations:flight_detail` | `GET /flights/<int:flight_id>/` | `flight_id`: database ID of a flight | Renders the airline, route, departure time, and arrival time; status 200, or 404 when the flight does not exist |
++| `reservations:booking_new` | `GET /booking/new/` | None | Renders the placeholder passenger form; status 200 |
++| `reservations:booking_submit` | `POST /booking/submit/` | Form fields `passenger_name` and `passenger_email` | Redirects to `/` with status 302 when both values are non-empty; re-renders the form with status 400 when either is missing, empty, or whitespace; returns 405 for unsupported methods |
++| `reservations:health` | `GET /health/` | None | Returns a non-empty plain-text health response; status 200 |
++
++The placeholder submission checks only that the passenger name and email are non-empty.
++It does not validate email shape, select a flight or seat, or create a `Booking` record.
++
+ ## Setup
+ 
+ Prerequisites:
+@@ -73,8 +94,8 @@ Start the development server:
+ uv run python manage.py runserver
+ ```
+ 
+-Visit `http://127.0.0.1:8000/admin/` to use Django admin after creating a local
+-superuser:
++Visit `http://127.0.0.1:8000/` for the home page or
++`http://127.0.0.1:8000/admin/` to use Django admin after creating a local superuser:
+ 
+ ```bash
+ uv run python manage.py createsuperuser
+@@ -88,7 +109,7 @@ Run Django system and migration checks:
+ 
+ ```bash
+ uv run python manage.py check
+-uv run python manage.py makemigrations --check --dry-run
++uv run python manage.py makemigrations --check
+ ```
+ 
+ Format and lint:
+@@ -111,7 +132,8 @@ CI runs dependency installation, Ruff formatting and lint checks, and Pytest.
+ 
+ Meaningful changes follow the specifications under `openspec/`. The Exercise 5 Django
+ foundation and schema are defined by the `create-initial-django-schema` change, which
+-relates to GitHub issues #2, #3, and #4.
++relates to GitHub issues #2, #3, and #4. The basic HTTP views are defined by
++`add-basic-django-views`, which relates to GitHub issues #6, #7, and #8.
+ 
+ AI-assisted changes require human review before commit. Inspect the final state with:
+ 
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/.openspec.yaml b/openspec/changes/archive/2026-07-26-add-basic-django-views/.openspec.yaml
+new file mode 100644
+index 0000000..2bc06e0
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/.openspec.yaml
+@@ -0,0 +1,2 @@
++schema: spec-driven
++created: 2026-07-26
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/design.md b/openspec/changes/archive/2026-07-26-add-basic-django-views/design.md
+new file mode 100644
+index 0000000..27d0f32
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/design.md
+@@ -0,0 +1,95 @@
++## Context
++
++SkyBook currently has generated Django project wiring and persisted reservation models,
++but its public URL configuration exposes no application pages. This change crosses the
++project URL configuration, the `reservations` application, templates, tests, and
++contributor documentation. It must use the existing `Flight` schema and remain a small
++course-project increment rather than beginning the real booking workflow.
++
++## Goals / Non-Goals
++
++**Goals:**
++
++- Establish a namespaced, named URL surface for six function-based Django views.
++- Render basic server-side templates for navigation, flight display, and placeholder
++  passenger input.
++- Specify predictable query, validation, 404, 405, 400, and redirect behavior.
++- Cover the public contract through focused Django/Pytest tests and document it for
++  contributors.
++
++**Non-Goals:**
++
++- Flight searching or filtering, authentication pages, payment handling, interactive
++  seat selection, or a complete booking workflow.
++- Creating `Booking` records or selecting a flight or seat during placeholder
++  submission.
++- Introducing a Django `Form` class, client-side validation framework, API layer, new
++  dependency, or database migration.
++
++## Decisions
++
++### Use an application URL namespace included at the project root
++
++`reservations/urls.py` will declare `app_name = "reservations"` and names for `home`,
++`flight_list`, `flight_detail`, `booking_new`, `booking_submit`, and `health`.
++`skybook/urls.py` will include those patterns at the empty prefix so the specified
++public paths remain exact while callers reverse stable names such as
++`reservations:flight_detail`.
++
++An unnamespaced application include was considered, but namespacing prevents collisions
++as the course project grows without changing the requested paths.
++
++### Keep views explicit and function-based
++
++Each endpoint will be a small function in `reservations/views.py`. Read-only views will
++render directly, flight detail will use `get_object_or_404`, and the submission view
++will explicitly reject non-POST requests with HTTP 405.
++
++Class-based generic views were considered, but function-based views are required and
++make the small method and validation contract visible.
++
++### Treat booking input as non-persistent placeholder data
++
++The booking template will post `passenger_name` and `passenger_email` to the named
++submission URL and include CSRF protection. Submission will strip surrounding
++whitespace from both fields. If either resulting value is empty, it will render the
++same booking template with HTTP 400, field-specific error context, and the submitted
++values. Otherwise it will redirect to the named home URL without creating a model
++instance.
++
++A Django `Form` and `Booking` creation were considered, but both would imply validation
++and workflow decisions—flight, seat, identity, duplicate handling—not authorized by
++this increment.
++
++### Expose simple, stable template context
++
++The flight list will query `Flight.objects.order_by("departure_time")` and expose the
++queryset as `flights`. Flight detail will expose one object as `flight`; its template
++will display airline, origin and destination, departure time, and arrival time. Home
++will link to the named flight-list and booking-form routes.
++
++Adding eager-loading or a service layer was considered, but the small read-only pages
++do not yet justify additional abstraction.
++
++### Test the HTTP contract at the Django boundary
++
++Tests will use Django's test client and URL reversing to verify exact route resolution,
++methods, status codes, templates, context, ordering, rendered detail fields, missing
++flight 404s, invalid and valid POST behavior, redirects, and plain-text health output.
++No migration tests are needed because the schema must remain unchanged; the migration
++drift check will enforce that decision.
++
++## Risks / Trade-offs
++
++- [The placeholder accepts any non-empty email string] → Document that this increment
++  validates presence only and defer email-shape validation to a future form workflow.
++- [A list page could be mistaken for flight search] → Provide no query parameters,
++  filtering, search controls, or availability logic.
++- [The successful POST discards passenger data] → Make the behavior explicit in the
++  template, README, spec, and tests; do not imply that a booking was created.
++- [Template details can make tests brittle] → Assert required content and template
++  names rather than full HTML snapshots.
++- [Future booking implementation will replace this contract] → Keep URL names stable
++  where practical, while treating persistence and richer validation as a separately
++  proposed change.
++
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/proposal.md b/openspec/changes/archive/2026-07-26-add-basic-django-views/proposal.md
+new file mode 100644
+index 0000000..c146ca3
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/proposal.md
+@@ -0,0 +1,43 @@
++## Why
++
++SkyBook has a working Django foundation and reservation schema but no public HTTP
++surface for exercising the application. The next course increment needs a deliberately
++small set of read-only flight pages, a placeholder booking submission, and a health
++endpoint without expanding into the deferred booking workflow.
++
++## What Changes
++
++- Add function-based home, flight-list, flight-detail, booking-form,
++  booking-submission, and health views with named URL patterns.
++- Add simple Django templates for the public pages and placeholder booking form.
++- Define request methods, path arguments, form fields, response content, status codes,
++  404 behavior, and successful-submission redirect behavior.
++- Add view and URL tests covering templates, context, ordering, reversing, validation,
++  redirects, and unsupported methods.
++- Document the public routes and verification workflow in `README.md`.
++- Keep the reservation schema unchanged and do not persist bookings from the
++  placeholder form.
++- Keep flight search, authentication pages, payments, interactive seat selection, and
++  the complete booking workflow out of scope.
++
++## Capabilities
++
++### New Capabilities
++
++- `basic-reservation-views`: Defines SkyBook's initial public pages, placeholder booking
++  form and submission contract, health endpoint, and named URL routes.
++
++### Modified Capabilities
++
++- `django-project-foundation`: Expands the permitted Exercise 5 HTTP surface from the
++  generated foundation to the explicitly bounded basic views while retaining the
++  deferred-feature boundary.
++
++## Impact
++
++- Affects `reservations/views.py`, new application URL configuration, project URL
++  inclusion, application templates, view and URL tests, and `README.md`.
++- Uses the existing `Flight` model for ordered list and detail queries.
++- Adds no dependencies, migrations, schema changes, authentication, payment handling,
++  seat-selection behavior, or booking persistence.
++- Relates to GitHub issues #6, #7, and #8.
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/basic-reservation-views/spec.md b/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/basic-reservation-views/spec.md
+new file mode 100644
+index 0000000..8420ad2
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/basic-reservation-views/spec.md
+@@ -0,0 +1,105 @@
++## ADDED Requirements
++
++### Requirement: Named reservation URL surface
++The application SHALL expose its basic views through a `reservations` URL namespace
++with named patterns for `home`, `flight_list`, `flight_detail`, `booking_new`,
++`booking_submit`, and `health`, and the project SHALL include those routes at its root.
++
++#### Scenario: Caller reverses a static application route
++- **WHEN** a caller reverses a static route by its namespaced name
++- **THEN** Django returns the corresponding `/`, `/flights/`, `/booking/new/`,
++  `/booking/submit/`, or `/health/` path
++
++#### Scenario: Caller reverses flight detail
++- **WHEN** a caller reverses `reservations:flight_detail` with a `flight_id` integer
++- **THEN** Django returns `/flights/<flight_id>/`
++
++### Requirement: Home page navigation
++The `home` view SHALL accept GET requests at `/`, render
++`reservations/home.html`, and present links to the named flight-list and booking-form
++routes.
++
++#### Scenario: Visitor opens the home page
++- **WHEN** a visitor sends GET `/`
++- **THEN** the response has status 200, uses `reservations/home.html`, and contains
++  links to `/flights/` and `/booking/new/`
++
++### Requirement: Ordered flight list
++The `flight_list` view SHALL accept GET requests at `/flights/`, query all `Flight`
++objects ordered by ascending `departure_time`, render `reservations/flight_list.html`,
++and expose the result as the `flights` template context value.
++
++#### Scenario: Visitor lists flights
++- **WHEN** a visitor sends GET `/flights/` and flights have different departure times
++- **THEN** the response has status 200, uses `reservations/flight_list.html`, and its
++  `flights` context contains those flights in ascending departure-time order
++
++#### Scenario: No flights exist
++- **WHEN** a visitor sends GET `/flights/` while no flights exist
++- **THEN** the response has status 200 and the `flights` context is empty
++
++### Requirement: Flight detail
++The `flight_detail` view SHALL accept GET requests at
++`/flights/<int:flight_id>/`, retrieve the identified `Flight`, render
++`reservations/flight_detail.html`, and expose it as the `flight` template context
++value. The rendered page SHALL show the flight's airline, origin and destination
++route, departure time, and arrival time.
++
++#### Scenario: Visitor opens an existing flight
++- **WHEN** a visitor sends GET for an existing flight ID
++- **THEN** the response has status 200, uses `reservations/flight_detail.html`, and
++  renders that flight's airline, route, departure time, and arrival time
++
++#### Scenario: Visitor opens a missing flight
++- **WHEN** a visitor sends GET for a flight ID that does not exist
++- **THEN** the response has status 404
++
++### Requirement: Placeholder booking form
++The `booking_new` view SHALL accept GET requests at `/booking/new/` and render
++`reservations/booking_form.html` with a CSRF-protected HTML form containing
++`passenger_name` and `passenger_email` fields that submits by POST to the named
++booking-submission route.
++
++#### Scenario: Visitor opens the booking form
++- **WHEN** a visitor sends GET `/booking/new/`
++- **THEN** the response has status 200, uses `reservations/booking_form.html`, and
++  contains the two required passenger input field names
++
++### Requirement: Placeholder booking submission
++The `booking_submit` view SHALL accept POST requests at `/booking/submit/`, read
++`passenger_name` and `passenger_email`, and treat either field as invalid when it is
++missing, empty, or contains only whitespace. It SHALL NOT create a `Booking` or other
++database record.
++
++#### Scenario: Both passenger fields are valid
++- **WHEN** a visitor POSTs non-empty `passenger_name` and `passenger_email`
++- **THEN** the response redirects to the named home route with status 302 and no
++  booking is persisted
++
++#### Scenario: A passenger field is invalid
++- **WHEN** a visitor POSTs with either passenger field missing, empty, or whitespace
++- **THEN** the response has status 400, uses `reservations/booking_form.html`, reports
++  validation errors in template context, and retains submitted values
++
++#### Scenario: Submission endpoint receives an unsupported method
++- **WHEN** a caller requests `/booking/submit/` with a method other than POST
++- **THEN** the response has status 405
++
++### Requirement: Plain-text health endpoint
++The `health` view SHALL accept GET requests at `/health/` and return a successful
++plain-text response suitable for checking that the Django application is running.
++
++#### Scenario: Monitor checks application health
++- **WHEN** a monitor sends GET `/health/`
++- **THEN** the response has status 200, a plain-text content type, and a non-empty
++  health response body
++
++### Requirement: Public route documentation
++Contributor documentation SHALL describe each basic endpoint's URL, method, path
++arguments, form fields, return behavior, status codes, and redirects, and SHALL state
++that placeholder submission does not create a booking.
++
++#### Scenario: Contributor reviews the HTTP contract
++- **WHEN** a contributor reads `README.md`
++- **THEN** the six endpoints and their request and response contracts are documented
++
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/django-project-foundation/spec.md b/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/django-project-foundation/spec.md
+new file mode 100644
+index 0000000..d46e3d9
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/specs/django-project-foundation/spec.md
+@@ -0,0 +1,18 @@
++## MODIFIED Requirements
++
++### Requirement: Deferred product features
++The initial Django project SHALL provide only its foundation, administrative model
++access, reservation schema, tests, and the explicitly bounded basic home, flight-list,
++flight-detail, placeholder booking, and health views. It SHALL NOT provide flight
++search or filtering, a seat-map interface, authentication pages, payment features,
++booking persistence through the placeholder form, or a complete booking workflow.
++
++#### Scenario: Initial application scope is reviewed
++- **WHEN** a contributor inspects the routes, templates, and application services
++- **THEN** the application contains only the permitted foundation, schema,
++  administration, test behavior, and basic HTTP views
++
++#### Scenario: Visitor submits the placeholder booking form
++- **WHEN** valid passenger placeholder data is submitted
++- **THEN** the application redirects without selecting a flight or seat and without
++  creating a booking
+diff --git a/openspec/changes/archive/2026-07-26-add-basic-django-views/tasks.md b/openspec/changes/archive/2026-07-26-add-basic-django-views/tasks.md
+new file mode 100644
+index 0000000..e3e6c7b
+--- /dev/null
++++ b/openspec/changes/archive/2026-07-26-add-basic-django-views/tasks.md
+@@ -0,0 +1,53 @@
++## 1. HTTP Contract Tests
++
++- [x] 1.1 Add URL reversing tests for every namespaced static route and the
++  `flight_detail` route with its `flight_id` argument.
++- [x] 1.2 Add home and health endpoint tests covering status codes, template and link
++  rendering, plain-text content type, and response body.
++- [x] 1.3 Add database-aware flight list and detail tests covering template names,
++  context keys, departure ordering, required rendered fields, empty results, and a
++  missing-flight 404.
++- [x] 1.4 Add booking form and submission tests covering form fields, CSRF-aware
++  rendering, successful redirect without persistence, missing/empty/whitespace
++  validation with status 400 and retained input, and unsupported methods with status
++  405.
++
++## 2. Views and Routing
++
++- [x] 2.1 Implement the six function-based views in `reservations/views.py` with the
++  specified queries, context names, validation, status codes, content type, and
++  redirect behavior.
++- [x] 2.2 Create namespaced, named patterns in `reservations/urls.py` for the exact
++  public paths and include them at the root from `skybook/urls.py`.
++- [x] 2.3 Confirm that the implementation introduces no model, migration, booking
++  persistence, search/filtering, authentication, payment, or seat-selection behavior.
++
++## 3. Templates
++
++- [x] 3.1 Create `reservations/home.html` with links reversed to the flight list and
++  booking form.
++- [x] 3.2 Create `reservations/flight_list.html` and
++  `reservations/flight_detail.html` to render the specified flight context and detail
++  fields.
++- [x] 3.3 Create `reservations/booking_form.html` with CSRF protection, the two named
++  passenger fields, retained submitted values, validation errors, and a form action
++  reversed to the submission route.
++
++## 4. Documentation
++
++- [x] 4.1 Update `README.md` with each endpoint's URL, method, path arguments, form
++  fields, return behavior, status codes, redirect target, and non-persistent
++  placeholder scope.
++- [x] 4.2 Ensure README scope notes continue to exclude flight search, authentication
++  pages, payments, interactive seat selection, and the complete booking workflow.
++
++## 5. Verification
++
++- [x] 5.1 Run `uv run ruff format .` and `uv run ruff format --check .`.
++- [x] 5.2 Run `uv run ruff check .`.
++- [x] 5.3 Run `uv run python manage.py check` and
++  `uv run python manage.py makemigrations --check`.
++- [x] 5.4 Run `uv run pytest` and confirm configured coverage does not regress.
++- [x] 5.5 Run
++  `openspec validate add-basic-django-views --type change --strict --no-interactive`
++  and review the final diff for scope compliance.
+diff --git a/openspec/specs/basic-reservation-views/spec.md b/openspec/specs/basic-reservation-views/spec.md
+new file mode 100644
+index 0000000..5aad972
+--- /dev/null
++++ b/openspec/specs/basic-reservation-views/spec.md
+@@ -0,0 +1,111 @@
++# Basic Reservation Views Specification
++
++## Purpose
++
++Define SkyBook's basic public HTTP views, URL contracts, placeholder booking
++submission behavior, and contributor-facing endpoint documentation.
++
++## Requirements
++
++### Requirement: Named reservation URL surface
++The application SHALL expose its basic views through a `reservations` URL namespace
++with named patterns for `home`, `flight_list`, `flight_detail`, `booking_new`,
++`booking_submit`, and `health`, and the project SHALL include those routes at its root.
++
++#### Scenario: Caller reverses a static application route
++- **WHEN** a caller reverses a static route by its namespaced name
++- **THEN** Django returns the corresponding `/`, `/flights/`, `/booking/new/`,
++  `/booking/submit/`, or `/health/` path
++
++#### Scenario: Caller reverses flight detail
++- **WHEN** a caller reverses `reservations:flight_detail` with a `flight_id` integer
++- **THEN** Django returns `/flights/<flight_id>/`
++
++### Requirement: Home page navigation
++The `home` view SHALL accept GET requests at `/`, render
++`reservations/home.html`, and present links to the named flight-list and booking-form
++routes.
++
++#### Scenario: Visitor opens the home page
++- **WHEN** a visitor sends GET `/`
++- **THEN** the response has status 200, uses `reservations/home.html`, and contains
++  links to `/flights/` and `/booking/new/`
++
++### Requirement: Ordered flight list
++The `flight_list` view SHALL accept GET requests at `/flights/`, query all `Flight`
++objects ordered by ascending `departure_time`, render `reservations/flight_list.html`,
++and expose the result as the `flights` template context value.
++
++#### Scenario: Visitor lists flights
++- **WHEN** a visitor sends GET `/flights/` and flights have different departure times
++- **THEN** the response has status 200, uses `reservations/flight_list.html`, and its
++  `flights` context contains those flights in ascending departure-time order
++
++#### Scenario: No flights exist
++- **WHEN** a visitor sends GET `/flights/` while no flights exist
++- **THEN** the response has status 200 and the `flights` context is empty
++
++### Requirement: Flight detail
++The `flight_detail` view SHALL accept GET requests at
++`/flights/<int:flight_id>/`, retrieve the identified `Flight`, render
++`reservations/flight_detail.html`, and expose it as the `flight` template context
++value. The rendered page SHALL show the flight's airline, origin and destination
++route, departure time, and arrival time.
++
++#### Scenario: Visitor opens an existing flight
++- **WHEN** a visitor sends GET for an existing flight ID
++- **THEN** the response has status 200, uses `reservations/flight_detail.html`, and
++  renders that flight's airline, route, departure time, and arrival time
++
++#### Scenario: Visitor opens a missing flight
++- **WHEN** a visitor sends GET for a flight ID that does not exist
++- **THEN** the response has status 404
++
++### Requirement: Placeholder booking form
++The `booking_new` view SHALL accept GET requests at `/booking/new/` and render
++`reservations/booking_form.html` with a CSRF-protected HTML form containing
++`passenger_name` and `passenger_email` fields that submits by POST to the named
++booking-submission route.
++
++#### Scenario: Visitor opens the booking form
++- **WHEN** a visitor sends GET `/booking/new/`
++- **THEN** the response has status 200, uses `reservations/booking_form.html`, and
++  contains the two required passenger input field names
++
++### Requirement: Placeholder booking submission
++The `booking_submit` view SHALL accept POST requests at `/booking/submit/`, read
++`passenger_name` and `passenger_email`, and treat either field as invalid when it is
++missing, empty, or contains only whitespace. It SHALL NOT create a `Booking` or other
++database record.
++
++#### Scenario: Both passenger fields are valid
++- **WHEN** a visitor POSTs non-empty `passenger_name` and `passenger_email`
++- **THEN** the response redirects to the named home route with status 302 and no
++  booking is persisted
++
++#### Scenario: A passenger field is invalid
++- **WHEN** a visitor POSTs with either passenger field missing, empty, or whitespace
++- **THEN** the response has status 400, uses `reservations/booking_form.html`, reports
++  validation errors in template context, and retains submitted values
++
++#### Scenario: Submission endpoint receives an unsupported method
++- **WHEN** a caller requests `/booking/submit/` with a method other than POST
++- **THEN** the response has status 405
++
++### Requirement: Plain-text health endpoint
++The `health` view SHALL accept GET requests at `/health/` and return a successful
++plain-text response suitable for checking that the Django application is running.
++
++#### Scenario: Monitor checks application health
++- **WHEN** a monitor sends GET `/health/`
++- **THEN** the response has status 200, a plain-text content type, and a non-empty
++  health response body
++
++### Requirement: Public route documentation
++Contributor documentation SHALL describe each basic endpoint's URL, method, path
++arguments, form fields, return behavior, status codes, and redirects, and SHALL state
++that placeholder submission does not create a booking.
++
++#### Scenario: Contributor reviews the HTTP contract
++- **WHEN** a contributor reads `README.md`
++- **THEN** the six endpoints and their request and response contracts are documented
+diff --git a/openspec/specs/django-project-foundation/spec.md b/openspec/specs/django-project-foundation/spec.md
+index f16c442..9517964 100644
+--- a/openspec/specs/django-project-foundation/spec.md
++++ b/openspec/specs/django-project-foundation/spec.md
+@@ -47,13 +47,21 @@ and Django migration-check commands that work with the generated Django structur
+   against the Django project
+ 
+ ### Requirement: Deferred product features
+-The initial Django project SHALL NOT provide flight-search pages, a seat-map interface,
+-authentication pages, payment features, or a complete booking workflow.
++The initial Django project SHALL provide only its foundation, administrative model
++access, reservation schema, tests, and the explicitly bounded basic home, flight-list,
++flight-detail, placeholder booking, and health views. It SHALL NOT provide flight
++search or filtering, a seat-map interface, authentication pages, payment features,
++booking persistence through the placeholder form, or a complete booking workflow.
+ 
+ #### Scenario: Initial application scope is reviewed
+ - **WHEN** a contributor inspects the routes, templates, and application services
+-- **THEN** only Django foundation, admin, schema, and test behavior required by
+-  Exercise 5 are present
++- **THEN** the application contains only the permitted foundation, schema,
++  administration, test behavior, and basic HTTP views
++
++#### Scenario: Visitor submits the placeholder booking form
++- **WHEN** valid passenger placeholder data is submitted
++- **THEN** the application redirects without selecting a flight or seat and without
++  creating a booking
+ 
+ ### Requirement: Obsolete Flask runtime removal
+ The repository SHALL NOT retain Flask as a runtime dependency or expose the obsolete
+diff --git a/reservations/templates/reservations/booking_form.html b/reservations/templates/reservations/booking_form.html
+new file mode 100644
+index 0000000..f71d71c
+--- /dev/null
++++ b/reservations/templates/reservations/booking_form.html
+@@ -0,0 +1,35 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8">
++    <title>Booking form | SkyBook</title>
++  </head>
++  <body>
++    <h1>Booking form</h1>
++    <p>This placeholder form does not create a booking.</p>
++    <form method="post" action="{% url 'reservations:booking_submit' %}">
++      {% csrf_token %}
++      <div>
++        <label for="passenger_name">Passenger name</label>
++        <input
++          id="passenger_name"
++          name="passenger_name"
++          type="text"
++          value="{{ passenger_name|default:'' }}"
++        >
++        {% if errors.passenger_name %}<p>{{ errors.passenger_name }}</p>{% endif %}
++      </div>
++      <div>
++        <label for="passenger_email">Passenger email</label>
++        <input
++          id="passenger_email"
++          name="passenger_email"
++          type="email"
++          value="{{ passenger_email|default:'' }}"
++        >
++        {% if errors.passenger_email %}<p>{{ errors.passenger_email }}</p>{% endif %}
++      </div>
++      <button type="submit">Submit</button>
++    </form>
++  </body>
++</html>
+diff --git a/reservations/templates/reservations/flight_detail.html b/reservations/templates/reservations/flight_detail.html
+new file mode 100644
+index 0000000..1304f42
+--- /dev/null
++++ b/reservations/templates/reservations/flight_detail.html
+@@ -0,0 +1,20 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8">
++    <title>{{ flight }} | SkyBook</title>
++  </head>
++  <body>
++    <h1>{{ flight }}</h1>
++    <dl>
++      <dt>Airline</dt>
++      <dd>{{ flight.airline }}</dd>
++      <dt>Route</dt>
++      <dd>{{ flight.origin }} to {{ flight.destination }}</dd>
++      <dt>Departure</dt>
++      <dd>{{ flight.departure_time }}</dd>
++      <dt>Arrival</dt>
++      <dd>{{ flight.arrival_time }}</dd>
++    </dl>
++  </body>
++</html>
+diff --git a/reservations/templates/reservations/flight_list.html b/reservations/templates/reservations/flight_list.html
+new file mode 100644
+index 0000000..0e87b46
+--- /dev/null
++++ b/reservations/templates/reservations/flight_list.html
+@@ -0,0 +1,22 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8">
++    <title>Flights | SkyBook</title>
++  </head>
++  <body>
++    <h1>Flights</h1>
++    <ul>
++      {% for flight in flights %}
++        <li>
++          <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
++            {{ flight }}
++          </a>
++          — {{ flight.departure_time }}
++        </li>
++      {% empty %}
++        <li>No flights are currently scheduled.</li>
++      {% endfor %}
++    </ul>
++  </body>
++</html>
+diff --git a/reservations/templates/reservations/home.html b/reservations/templates/reservations/home.html
+new file mode 100644
+index 0000000..bf5afff
+--- /dev/null
++++ b/reservations/templates/reservations/home.html
+@@ -0,0 +1,14 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8">
++    <title>SkyBook</title>
++  </head>
++  <body>
++    <h1>SkyBook</h1>
++    <nav>
++      <a href="{% url 'reservations:flight_list' %}">View flights</a>
++      <a href="{% url 'reservations:booking_new' %}">Booking form</a>
++    </nav>
++  </body>
++</html>
+diff --git a/reservations/urls.py b/reservations/urls.py
+new file mode 100644
+index 0000000..de2e958
+--- /dev/null
++++ b/reservations/urls.py
+@@ -0,0 +1,14 @@
++from django.urls import path
++
++from reservations import views
++
++app_name = "reservations"
++
++urlpatterns = [
++    path("", views.home, name="home"),
++    path("flights/", views.flight_list, name="flight_list"),
++    path("flights/<int:flight_id>/", views.flight_detail, name="flight_detail"),
++    path("booking/new/", views.booking_new, name="booking_new"),
++    path("booking/submit/", views.booking_submit, name="booking_submit"),
++    path("health/", views.health, name="health"),
++]
+diff --git a/reservations/views.py b/reservations/views.py
+index bb58bc5..cc71ddd 100644
+--- a/reservations/views.py
++++ b/reservations/views.py
+@@ -1 +1,54 @@
+-"""Views will be added in a later exercise."""
++from django.http import HttpResponse
++from django.shortcuts import get_object_or_404, redirect, render
++from django.views.decorators.http import require_GET, require_POST
++
++from reservations.models import Flight
++
++
++@require_GET
++def home(request):
++    return render(request, "reservations/home.html")
++
++
++@require_GET
++def flight_list(request):
++    flights = Flight.objects.order_by("departure_time")
++    return render(request, "reservations/flight_list.html", {"flights": flights})
++
++
++@require_GET
++def flight_detail(request, flight_id):
++    flight = get_object_or_404(Flight, pk=flight_id)
++    return render(request, "reservations/flight_detail.html", {"flight": flight})
++
++
++@require_GET
++def booking_new(request):
++    return render(request, "reservations/booking_form.html")
++
++
++@require_POST
++def booking_submit(request):
++    passenger_name = request.POST.get("passenger_name", "")
++    passenger_email = request.POST.get("passenger_email", "")
++    errors = {}
++
++    if not passenger_name.strip():
++        errors["passenger_name"] = "Passenger name is required."
++    if not passenger_email.strip():
++        errors["passenger_email"] = "Passenger email is required."
++
++    if errors:
++        context = {
++            "errors": errors,
++            "passenger_name": passenger_name,
++            "passenger_email": passenger_email,
++        }
++        return render(request, "reservations/booking_form.html", context, status=400)
++
++    return redirect("reservations:home")
++
++
++@require_GET
++def health(request):
++    return HttpResponse("ok", content_type="text/plain")
+diff --git a/skybook/urls.py b/skybook/urls.py
+index fcbee37..8450b6c 100644
+--- a/skybook/urls.py
++++ b/skybook/urls.py
+@@ -16,8 +16,9 @@ Including another URLconf
+ """
+ 
+ from django.contrib import admin
+-from django.urls import path
++from django.urls import include, path
+ 
+ urlpatterns = [
+     path("admin/", admin.site.urls),
++    path("", include("reservations.urls")),
+ ]
+diff --git a/tests/test_views.py b/tests/test_views.py
+new file mode 100644
+index 0000000..8e37e86
+--- /dev/null
++++ b/tests/test_views.py
+@@ -0,0 +1,169 @@
++from datetime import timedelta
++
++import pytest
++from django.test import Client
++from django.urls import reverse
++from django.utils import timezone
++from reservations.models import Airline, Booking, City, Flight
++
++
++def assert_template_used(response, template_name):
++    assert template_name in [template.name for template in response.templates]
++
++
++@pytest.fixture
++def flight_factory(db):
++    airline = Airline.objects.create(name="SkyBook Air", code="SKY")
++    origin = City.objects.create(name="Tokyo", code="TYO")
++    destination = City.objects.create(name="Osaka", code="OSA")
++
++    def create_flight(*, flight_number, departure_time):
++        return Flight.objects.create(
++            airline=airline,
++            flight_number=flight_number,
++            origin=origin,
++            destination=destination,
++            departure_time=departure_time,
++            arrival_time=departure_time + timedelta(hours=1),
++        )
++
++    return create_flight
++
++
++@pytest.mark.parametrize(
++    ("route_name", "expected_path"),
++    [
++        ("home", "/"),
++        ("flight_list", "/flights/"),
++        ("booking_new", "/booking/new/"),
++        ("booking_submit", "/booking/submit/"),
++        ("health", "/health/"),
++    ],
++)
++def test_static_routes_reverse(route_name, expected_path):
++    assert reverse(f"reservations:{route_name}") == expected_path
++
++
++def test_flight_detail_route_reverses_with_flight_id():
++    assert reverse("reservations:flight_detail", kwargs={"flight_id": 42}) == "/flights/42/"
++
++
++def test_home_renders_navigation_links(client):
++    response = client.get(reverse("reservations:home"))
++
++    assert response.status_code == 200
++    assert_template_used(response, "reservations/home.html")
++    assert reverse("reservations:flight_list") in response.content.decode()
++    assert reverse("reservations:booking_new") in response.content.decode()
++
++
++def test_health_returns_plain_text(client):
++    response = client.get(reverse("reservations:health"))
++
++    assert response.status_code == 200
++    assert response.headers["Content-Type"].startswith("text/plain")
++    assert response.content
++
++
++@pytest.mark.django_db
++def test_flight_list_renders_empty_context(client):
++    response = client.get(reverse("reservations:flight_list"))
++
++    assert response.status_code == 200
++    assert_template_used(response, "reservations/flight_list.html")
++    assert list(response.context["flights"]) == []
++
++
++@pytest.mark.django_db
++def test_flight_list_orders_flights_by_departure_time(client, flight_factory):
++    later_departure = timezone.now() + timedelta(days=2)
++    earlier = flight_factory(
++        flight_number="102", departure_time=later_departure - timedelta(days=1)
++    )
++    later = flight_factory(flight_number="101", departure_time=later_departure)
++
++    response = client.get(reverse("reservations:flight_list"))
++
++    assert response.status_code == 200
++    assert_template_used(response, "reservations/flight_list.html")
++    assert list(response.context["flights"]) == [earlier, later]
++
++
++@pytest.mark.django_db
++def test_flight_detail_renders_flight_fields(client, flight_factory):
++    flight = flight_factory(flight_number="101", departure_time=timezone.now())
++
++    response = client.get(reverse("reservations:flight_detail", args=[flight.id]))
++    content = response.content.decode()
++
++    assert response.status_code == 200
++    assert_template_used(response, "reservations/flight_detail.html")
++    assert response.context["flight"] == flight
++    assert str(flight.airline) in content
++    assert str(flight.origin) in content
++    assert str(flight.destination) in content
++    assert str(flight.departure_time.year) in content
++    assert str(flight.arrival_time.year) in content
++
++
++@pytest.mark.django_db
++def test_flight_detail_returns_404_for_missing_flight(client):
++    response = client.get(reverse("reservations:flight_detail", args=[999]))
++
++    assert response.status_code == 404
++
++
++def test_booking_form_renders_fields_and_csrf_token():
++    client = Client(enforce_csrf_checks=True)
++
++    response = client.get(reverse("reservations:booking_new"))
++    content = response.content.decode()
++
++    assert response.status_code == 200
++    assert_template_used(response, "reservations/booking_form.html")
++    assert 'name="passenger_name"' in content
++    assert 'name="passenger_email"' in content
++    assert 'name="csrfmiddlewaretoken"' in content
++
++
++@pytest.mark.django_db
++def test_valid_booking_submission_redirects_without_persisting(client):
++    response = client.post(
++        reverse("reservations:booking_submit"),
++        {"passenger_name": "Aiko Tanaka", "passenger_email": "aiko@example.com"},
++    )
++
++    assert response.status_code == 302
++    assert response.url == reverse("reservations:home")
++    assert Booking.objects.count() == 0
++
++
++@pytest.mark.parametrize(
++    ("data", "error_field"),
++    [
++        ({"passenger_email": "aiko@example.com"}, "passenger_name"),
++        ({"passenger_name": "Aiko Tanaka"}, "passenger_email"),
++        (
++            {"passenger_name": "", "passenger_email": "aiko@example.com"},
++            "passenger_name",
++        ),
++        (
++            {"passenger_name": "Aiko Tanaka", "passenger_email": "   "},
++            "passenger_email",
++        ),
++    ],
++)
++def test_invalid_booking_submission_returns_form_with_errors(client, data, error_field):
++    response = client.post(reverse("reservations:booking_submit"), data)
++
++    assert response.status_code == 400
++    assert_template_used(response, "reservations/booking_form.html")
++    assert error_field in response.context["errors"]
++    assert response.context["passenger_name"] == data.get("passenger_name", "")
++    assert response.context["passenger_email"] == data.get("passenger_email", "")
++
++
++def test_booking_submission_rejects_unsupported_methods(client):
++    response = client.get(reverse("reservations:booking_submit"))
++
++    assert response.status_code == 405
