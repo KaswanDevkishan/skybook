@@ -19,6 +19,12 @@ The domestic-data and homepage milestone expands the idempotent demonstration ca
 to approximately 30–40 stable major Japanese airport or airport-served destinations,
 adds curated routes across all major regions, installs the Japan-focused homepage hero
 copy, and removes the complete site footer.
+The authentication and ownership milestone adds Django-native Create Account, Sign In,
+POST Log Out, account-aware navigation, private owned-booking history, authenticated
+booking association, editable passenger detail prefills, and status-based cancellation
+of future owned bookings. Authentication is required before price review and final
+confirmation; anonymous passenger input resumes safely after sign-in or registration.
+Preserve historical guest bookings, their receipts, and cancelled history.
 
 The Django project package belongs in `skybook/`, the main application in
 `reservations/`, tests in `tests/`, and the management entry point is `manage.py`.
@@ -40,17 +46,26 @@ behavior. Preserve every existing destination row and identifier, flight endpoin
 schedule, seat identity and price, and booking during repeated seeding. Create future
 schedules only for initially missing seeded flights and treat the catalog as
 representative demonstration data, not a complete or live aviation schedule.
-Authentication screens and navigation, real payments, aircraft-shaped SVG seat maps,
-booking dashboards, cancellation, guest lookup, round trips, external airline APIs,
-unrelated UI changes, other client-side frameworks, Docker unless genuinely required,
-Redis, Celery, workers, and file uploads remain out of scope.
+Use Django's built-in authentication model, password hashing, validators, sessions,
+CSRF protection, and safe redirect handling. Account pages and registered receipts must
+filter by persisted booking ownership; logout must remain a POST action. Never query
+accounts using passenger email or disclose whether a passenger email belongs to an
+account. Passenger details may differ from the account holder. Store only safe pending
+flight, seat, passenger name, and passenger email data in the session; revalidate
+availability and recalculate pricing after authentication. Every newly completed public
+booking must belong to `request.user`. Real payments
+and refunds, aircraft-shaped SVG seat maps, guest lookup, password reset, email
+verification, round trips, external airline APIs, unrelated UI changes, other client-side
+frameworks, Docker unless genuinely required, Redis, Celery, workers, and file uploads
+remain out of scope.
 
 ## Domain Model and Booking Rules
 
 The domain entities are `City`, `Airline`, `Flight`, `Seat`, and `Booking`; use
 Django's built-in authentication user model rather than defining a custom `User`.
-Support both guest and registered-user bookings by allowing `Booking.user` to be
-null. Treat seat availability as a server-side invariant: database constraints must
+Allow `Booking.user` to remain null for historical guest bookings, but require an
+authenticated owner for every new public booking. Treat seat availability as a
+server-side invariant: database constraints must
 prevent two bookings for the same flight seat, even with stale or concurrent
 requests. Never rely only on browser validation or a future seat-map UI.
 Seats use Economy/Business and Window/Middle/Aisle choices with whole-yen Decimal
@@ -86,7 +101,8 @@ constants. Keep routes thin and place reusable logic in focused modules.
 
 Name tests `test_<feature>.py` and functions `test_<behavior>()`. Use Django's test
 utilities and database-aware Pytest markers where appropriate. New behavior and bug
-fixes require tests, especially guest/registered booking paths, model constraints,
+fixes require tests, especially authentication resume, historical guest/registered
+booking paths, model constraints,
 migrations, search validation, CSRF protection, retained form values, and
 duplicate-seat rejection. Interface changes also require tests for static assets,
 semantic landmarks, skip navigation, visible labels, and accessible error markup. Do
@@ -103,6 +119,10 @@ regional route validity, repeated-run idempotency, preservation snapshots, new-f
 seat structure and JPY pricing, full-page and HTMX search, and the connected booking
 flow. Homepage tests must cover the exact hero copy, footer absence, the SkyBook home
 link, Flights current state, and absence of placeholder authentication navigation.
+Authentication-booking tests must cover state-dependent seat-selection actions, safe
+pending-session fields and cleanup, sign-in and registration resume, unsafe `next`
+rejection, direct anonymous review/confirmation blocking, passenger-email
+non-disclosure, owned completion, current pricing, and stale-seat rejection.
 
 ## Commits and Pull Requests
 

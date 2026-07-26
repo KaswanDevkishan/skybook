@@ -9,12 +9,27 @@
 
 {% if form.errors %}
     <div class="error-summary" role="alert">
-        <p><strong>There was a problem with your search.</strong></p>
-        <p>Please review the highlighted fields and try again.</p>
-        {{ form.non_field_errors }}
-        {% for field in form %}
-            {{ field.errors }}
-        {% endfor %}
+        {% if form.has_same_route_error %}
+            <p><strong>Choose two different airports</strong></p>
+            <p id="same-route-error">
+                Your origin and destination cannot be the same. Please select a different airport.
+            </p>
+        {% else %}
+            <p><strong>There was a problem with your search.</strong></p>
+            <p>Please review the highlighted fields and try again.</p>
+            {{ form.non_field_errors }}
+        {% endif %}
+        {% if is_htmx %}
+            {% for field in form %}
+                {% if field.name == "departure_date" and field.errors %}
+                    <ul class="errorlist" id="id_departure_date-errors">
+                        {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                    </ul>
+                {% else %}
+                    {{ field.errors }}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
     </div>
 {% endif %}
 

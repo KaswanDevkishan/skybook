@@ -18,7 +18,7 @@
 
     <header class="site-header">
         <div class="container header-layout">
-            <a class="site-name" href="{% url 'reservations:home' %}">
+            <a class="site-name" href="{% url 'reservations:flight_list' %}">
                 <span>SkyBook</span>
             </a>
 
@@ -30,6 +30,40 @@
                             Flights
                         </a>
                     </li>
+                    <li>
+                        <a href="{% url 'reservations:my_bookings' %}"
+                            {% if request.resolver_match.url_name == "my_bookings" %}aria-current="page"{% endif %}>
+                            My Bookings
+                        </a>
+                    </li>
+                    {% if request.user.is_authenticated %}
+                        <li>
+                            <a href="{% url 'reservations:account' %}"
+                                {% if request.resolver_match.url_name == "account" %}aria-current="page"{% endif %}>
+                                Account
+                            </a>
+                        </li>
+                        <li>
+                            <form method="post" action="{% url 'reservations:sign_out' %}"
+                                class="nav-form">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-action">Log Out</button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li>
+                            <a href="{% url 'reservations:sign_in' %}"
+                                {% if request.resolver_match.url_name == "sign_in" %}aria-current="page"{% endif %}>
+                                Sign In
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'reservations:register' %}"
+                                {% if request.resolver_match.url_name == "register" %}aria-current="page"{% endif %}>
+                                Create Account
+                            </a>
+                        </li>
+                    {% endif %}
                 </ul>
             </nav>
         </div>

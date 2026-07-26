@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.template import Context, Template
 from django.test import Client
 from django.urls import NoReverseMatch, reverse
@@ -94,35 +95,41 @@ def test_generic_booking_routes_are_removed(client):
     assert client.post("/booking/submit/").status_code == 404
 
 
-def test_home_and_navigation_only_link_to_connected_entry(client):
+def test_root_redirects_to_flights(client):
     response = client.get(reverse("reservations:home"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("reservations:flight_list")
+
+
+def test_flight_search_has_logged_out_navigation_without_old_landing_copy(client, db):
+    response = client.get(reverse("reservations:flight_list"))
     content = response.content.decode()
     primary_navigation = content.split('<nav aria-label="Primary navigation">', 1)[1].split(
         "</nav>", 1
     )[0]
 
     assert response.status_code == 200
-    assert "Japan is closer than you think" in content
-    assert "Where will Japan take you next?" in content
-    assert (
-        "Search domestic routes, compare fares, and choose your perfect seat—all in one "
-        "smooth journey."
-    ) in content
+    assert "Japan is closer than you think" not in content
+    assert "Where will Japan take you next?" not in content
+    assert "choose your perfect seat—all in one smooth journey." not in content
     assert reverse("reservations:flight_list") in content
     assert "Booking form" not in content
     assert "Book a Flight" not in content
     assert '<nav aria-label="Primary navigation">' in content
     assert 'class="skip-link" href="#main-content"' in content
-    assert f'class="site-name" href="{reverse("reservations:home")}"' in content
-    assert primary_navigation.count("<li>") == 1
-    assert primary_navigation.count("<a ") == 1
+    assert f'class="site-name" href="{reverse("reservations:flight_list")}"' in content
+    assert primary_navigation.count("<li>") == 4
     assert "Home" not in primary_navigation
     assert "Flights" in primary_navigation
     assert reverse("reservations:flight_list") in primary_navigation
-    assert "aria-current" not in primary_navigation
-    assert "Sign In" not in content
-    assert "Sign in" not in content
-    assert "Create Account" not in content
+    assert reverse("reservations:my_bookings") in primary_navigation
+    assert reverse("reservations:sign_in") in primary_navigation
+    assert reverse("reservations:register") in primary_navigation
+    assert 'aria-current="page"' in primary_navigation
+    assert "Sign In" in content
+    assert "Create Account" in content
+    assert "Log Out" not in content
     assert "site-name__mark" not in content
     assert "S SkyBook" not in content
     assert "<footer" not in content
@@ -147,11 +154,22 @@ def test_empty_flight_list_has_complete_page_and_search_form(client):
     assert_template_used(response, "reservations/flight_list.html")
     assert list(response.context["flights"]) == []
     assert 'method="get"' in content
+    assert f'min="{timezone.localdate().isoformat()}"' in content
     assert 'hx-get="/flights/"' in content
     assert 'aria-live="polite"' in content
     assert 'class="flight-search-hero"' in content
-    assert "Flights without the friction" in content
-    assert "Where are you flying next?" in content
+    assert "Take off toward your next adventure" in content
+    assert "YOUR JOURNEY STARTS HERE" not in content
+    assert (
+        "Discover routes across Japan, compare fares, and choose the seat that suits your journey."
+        not in content
+    )
+    assert "Flights without the friction" not in content
+    assert "Where are you flying next?" not in content
+    assert (
+        "Compare available routes, transparent fares, and seats in one simple search."
+        not in content
+    )
     assert 'class="search-card"' in content
     assert 'class="container container--wide main-content"' in content
     assert "How it works" not in content
@@ -263,8 +281,7 @@ def test_flights_navigation_marks_search_and_booking_as_current(client, flight):
         primary_navigation = content.split('<nav aria-label="Primary navigation">', 1)[1].split(
             "</nav>", 1
         )[0]
-        assert primary_navigation.count("<li>") == 1
-        assert primary_navigation.count("<a ") == 1
+        assert primary_navigation.count("<li>") == 4
         assert f'href="{reverse("reservations:flight_list")}"' in primary_navigation
         assert content.count('aria-current="page"') == 1
 
@@ -294,6 +311,95 @@ def test_invalid_search_retains_values_and_returns_accessible_errors(client):
     assert list(response.context["flights"]) == []
     assert "not-a-date" in content
     assert 'class="error-summary" role="alert"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("is_htmx", [False, True])
+def test_same_airport_search_has_one_associated_route_error(client, is_htmx):
+    origin = City.objects.create(name="Tokyo", code="TYO")
+    headers = {"HX-Request": "true"} if is_htmx else {}
+    response = client.get(
+        reverse("reservations:flight_list"),
+        {
+            "origin": origin.pk,
+            "destination": origin.pk,
+            "departure_date": timezone.localdate().isoformat(),
+        },
+        headers=headers,
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert list(response.context["flights"]) == []
+    assert content.count("Choose two different airports") == 1
+    assert (
+        content.count(
+            "Your origin and destination cannot be the same. Please select a different airport."
+        )
+        == 1
+    )
+    assert "There was a problem with your search" not in content
+    assert "Please review the highlighted fields and try again." not in content
+    assert "Error:" not in content
+    assert 'id="same-route-error"' in content
+    if is_htmx:
+        assert_template_used(response, "reservations/partials/flight_results.html")
+        assert "<form" not in content
+    else:
+        assert 'id="id_origin"' in content
+        assert 'id="id_destination"' in content
+        assert content.count('aria-invalid="true"') == 2
+        assert content.count('aria-describedby="same-route-error"') == 2
+
+
+@pytest.mark.django_db
+def test_past_date_search_returns_no_results_or_flight_query_in_full_page(client, flight):
+    yesterday = timezone.localdate() - timedelta(days=1)
+
+    with patch("reservations.views.flights_with_availability") as flight_query:
+        response = client.get(
+            reverse("reservations:flight_list"),
+            {
+                "origin": flight.origin_id,
+                "destination": flight.destination_id,
+                "departure_date": yesterday.isoformat(),
+            },
+        )
+
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert_template_used(response, "reservations/flight_list.html")
+    assert list(response.context["flights"]) == []
+    flight_query.assert_not_called()
+    assert content.count("Departure date cannot be in the past.") == 1
+    assert 'aria-describedby="id_departure_date-errors"' in content
+    assert 'id="id_departure_date-errors"' in content
+    assert flight.flight_number not in content
+
+
+@pytest.mark.django_db
+def test_past_date_htmx_search_returns_same_associated_error_and_no_results(client, flight):
+    yesterday = timezone.localdate() - timedelta(days=1)
+
+    with patch("reservations.views.flights_with_availability") as flight_query:
+        response = client.get(
+            reverse("reservations:flight_list"),
+            {
+                "origin": flight.origin_id,
+                "destination": flight.destination_id,
+                "departure_date": yesterday.isoformat(),
+            },
+            headers={"HX-Request": "true"},
+        )
+
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert_template_used(response, "reservations/partials/flight_results.html")
+    assert list(response.context["flights"]) == []
+    flight_query.assert_not_called()
+    assert content.count("Departure date cannot be in the past.") == 1
+    assert 'id="id_departure_date-errors"' in content
+    assert flight.flight_number not in content
 
 
 @pytest.mark.django_db
@@ -384,6 +490,8 @@ def test_invalid_flight_booking_returns_404(client):
 
 @pytest.mark.django_db
 def test_review_calculates_server_price_without_creating_booking(client, flight, seats):
+    user = get_user_model().objects.create_user(username="reviewer")
+    client.force_login(user)
     response = client.post(
         reverse("reservations:flight_booking", args=[flight.pk]),
         {
@@ -416,7 +524,9 @@ def test_review_calculates_server_price_without_creating_booking(client, flight,
 
 
 @pytest.mark.django_db
-def test_confirm_creates_guest_booking_and_redirects_to_detailed_receipt(client, flight, seats):
+def test_confirm_creates_owned_booking_and_redirects_to_detailed_receipt(client, flight, seats):
+    user = get_user_model().objects.create_user(username="booker")
+    client.force_login(user)
     response = client.post(
         reverse("reservations:flight_booking", args=[flight.pk]),
         {
@@ -434,7 +544,7 @@ def test_confirm_creates_guest_booking_and_redirects_to_detailed_receipt(client,
         "reservations:booking_confirmation",
         args=[booking.booking_reference],
     )
-    assert booking.user is None
+    assert booking.user == user
     assert booking.base_fare == Decimal("15005")
     assert booking.taxes_and_fees == Decimal("1501")
     assert booking.total_price == Decimal("16506")
@@ -504,8 +614,9 @@ def test_booked_seat_and_stale_confirmation_are_rejected(client, flight, seats):
 
 @pytest.mark.django_db
 def test_transaction_conflict_returns_visible_error(client, flight, seats):
+    client.force_login(get_user_model().objects.create_user(username="conflict"))
     with patch(
-        "reservations.views.create_guest_booking",
+        "reservations.views.create_booking",
         side_effect=SeatUnavailableError("This seat was booked before confirmation."),
     ):
         response = client.post(

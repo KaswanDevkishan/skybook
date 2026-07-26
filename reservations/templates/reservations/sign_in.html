@@ -1,0 +1,47 @@
+{% extends "reservations/base.html" %}
+
+{% block title %}Sign in | SkyBook{% endblock %}
+
+{% block content %}
+<section class="auth-shell" aria-labelledby="sign-in-heading">
+    <div class="auth-card auth-card--compact">
+        <header class="auth-card__header">
+            <p class="eyebrow">Welcome back</p>
+            <h1 id="sign-in-heading">Sign in</h1>
+            <p>Access your private SkyBook account and booking history.</p>
+        </header>
+
+        <form method="post" action="{% url 'reservations:sign_in' %}" class="auth-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="error-summary auth-form__error" role="alert">
+                    <p>We couldn’t sign you in. Check your username and password and try again.</p>
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-field{% if field.errors %} form-field--invalid{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="field-errors" id="{{ field.id_for_label }}-errors">
+                            {% for error in field.errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+            <button class="button auth-form__submit" type="submit">Sign In</button>
+        </form>
+
+        <p class="auth-card__alternate">
+            New to SkyBook?
+            <a href="{% url 'reservations:register' %}">Create an account</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

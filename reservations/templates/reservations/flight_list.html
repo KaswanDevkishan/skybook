@@ -5,9 +5,7 @@
 {% block content %}
 <section class="flight-search-hero" aria-labelledby="flight-search-title">
     <div class="flight-search-hero__copy">
-        <p class="eyebrow">Flights without the friction</p>
-        <h1 id="flight-search-title">Where are you flying next?</h1>
-        <p>Compare available routes, transparent fares, and seats in one simple search.</p>
+        <h1 id="flight-search-title">Take off toward your next adventure</h1>
     </div>
 
     <div class="search-card">
@@ -27,7 +25,13 @@
                     <div class="form-field">
                         {{ field.label_tag }}
                         {{ field }}
-                        {{ field.errors }}
+                        {% if field.name == "departure_date" and field.errors %}
+                            <ul class="errorlist" id="id_departure_date-errors">
+                                {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                            </ul>
+                        {% else %}
+                            {{ field.errors }}
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>

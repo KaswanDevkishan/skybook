@@ -3,22 +3,27 @@
 SkyBook is a simple airline ticket reservation system for a Web Engineering course.
 Exercise 11 prepares the Django application for Render, and the first major booking
 redesign connects flight search to seat selection, passenger details, authoritative
-JPY price review, confirmation, and a booking receipt. Existing HTMX search and the
-semantic responsive interface remain intact. SQLite is used locally; production uses
-Render PostgreSQL.
+JPY price review, confirmation, and a booking receipt. Django-native registration,
+session authentication, private account booking history, and authenticated booking
+ownership now gate new booking completion while preserving historical guest bookings.
+Existing HTMX search and the semantic responsive interface remain intact. SQLite is used
+locally; production uses Render PostgreSQL.
 
 The current milestone provides:
 
 - A generated Django project and `reservations` application
 - `City`, `Airline`, `Flight`, `Seat`, and `Booking` models
-- Django's built-in authentication user model for registered bookings
-- Guest bookings through a nullable `Booking.user`
+- Django's built-in authentication user model, password hashing, validators, and sessions
+- Create Account, Sign In, CSRF-protected POST Log Out, and login-required Account pages
+- Historical guest bookings through a nullable `Booking.user`
+- Private account booking history and owner-filtered registered booking receipts
 - Database constraints for valid routes, times, scheduled flights, seats, and bookings
 - Django admin registration, migrations, model tests, and coverage
-- Home, searchable flight-list, flight-detail, connected guest-booking, confirmation,
-  and health views
-- GET-based flight search with validated city and departure-date input
-- Flight-scoped, CSRF-protected guest booking with validated seat and passenger input
+- Home, searchable flight-list, flight-detail, authentication-gated booking,
+  confirmation, account, authentication, guest My Bookings information, and health views
+- GET-based flight search with validated city input and departure dates limited to today
+  or later in the configured project timezone
+- Flight-scoped, CSRF-protected seat and passenger input with safe authentication resume
 - Economy and Business seats with Window, Middle, and Aisle types and varied JPY prices
 - Immutable booking-time price snapshots and unique `SKY-XXXXXXXX` references
 - Semantic page landmarks, skip navigation, logical headings, and accessible form
@@ -30,10 +35,10 @@ The current milestone provides:
 - Idempotent course-demonstration data covering major domestic Japanese airports and
   regional routes during Render deployment
 
-Authentication screens, real payments, aircraft-shaped SVG seat maps, booking
-dashboards, cancellation, guest lookup, round trips, tracking, destination galleries,
-external airline APIs, and unrelated infrastructure remain deferred. Confirmation is
-a simulated academic checkout and never collects card data.
+Email verification, password reset, profile editing, real payments and refunds,
+guest reference/email lookup, round trips, tracking, destination galleries, external
+airline APIs, and unrelated infrastructure remain deferred. Confirmation is a simulated
+academic checkout and never collects card data.
 
 ## Project Structure
 
@@ -86,11 +91,18 @@ All application routes use the `reservations` URL namespace.
 
 | Name | Method and URL | Arguments or fields | Response |
 | --- | --- | --- | --- |
-| `reservations:home` | `GET /` | None | Renders the home page and flight-search entry; status 200 |
-| `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date`; optional `HX-Request: true` header | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and departure date in that order. Invalid input renders visible errors and no partially filtered results. Ordinary requests return the complete page; requests with `HX-Request: true` return only the `flight-results` partial; status 200 |
+| `reservations:home` | `GET /` | None | Redirects to `/flights/`; status 302 |
+| `reservations:register` | `GET, POST /accounts/register/` | `username`, `email`, `first_name`, `last_name`, `password1`, and `password2` | Shows Create Account or creates a Django user and signs them in. A pending booking resumes; otherwise it redirects to Account. Invalid input shows accessible errors |
+| `reservations:sign_in` | `GET, POST /accounts/sign-in/` | `username`, `password`, and optional safe local `next` | Uses Django authentication and sessions. A pending booking resumes through a fixed local route; unsafe external redirects are rejected |
+| `reservations:sign_out` | `POST /accounts/sign-out/` | CSRF token | Ends the Django session and redirects to `/flights/`; GET is rejected |
+| `reservations:account` | `GET /account/` | Authenticated session | Shows the current user's profile and active Confirmed bookings owned through `Booking.user`; future and past Confirmed bookings remain visible, Cancelled bookings are excluded, and anonymous requests redirect to Sign In |
+| `reservations:my_bookings` | `GET /bookings/` | Optional authenticated session | Redirects members to Account; guests see a clear future-lookup message without any booking data |
+| `reservations:flight_list` | `GET /flights/` | Query fields `origin`, `destination`, and `departure_date`; optional `HX-Request: true` header | With no query, renders all flights ordered by ascending departure time. A valid query filters exact cities and a departure date of today or later, using Django's current local date. Invalid input renders accessible field errors and no partially filtered results. Ordinary requests return the complete page; requests with `HX-Request: true` return only the `flight-results` partial with the same validation feedback; status 200 |
 | `reservations:flight_detail` | `GET /flights/<int:flight_id>/` | `flight_id`: database ID of a flight | Renders the airline, route, departure time, and arrival time; status 200, or 404 when the flight does not exist |
-| `reservations:flight_booking` | `GET, POST /flights/<int:flight_id>/book/` | URL `flight_id`; POST `seat`, `passenger_name`, `passenger_email`, and `action` | GET shows only the flight's seats. Review displays authoritative prices without persistence. Confirm revalidates and atomically creates a guest booking, then redirects to its receipt. Invalid flights return 404; invalid or stale seats produce visible errors |
-| `reservations:booking_confirmation` | `GET /bookings/<str:booking_reference>/confirmation/` | URL `booking_reference` | Displays the immutable booking receipt; unknown references return 404 |
+| `reservations:flight_booking` | `GET, POST /flights/<int:flight_id>/book/` | URL `flight_id`; POST `seat`, `passenger_name`, `passenger_email`, and `action` | GET shows only the flight's seats. Anonymous valid submissions save safe pending details and redirect to Sign In or Create Account without creating a Booking. Authenticated review displays authoritative prices; confirmation revalidates and atomically creates an owned booking |
+| `reservations:resume_booking` | `GET /bookings/resume/` | Authenticated session containing safe pending booking data | Restores passenger input, rechecks the flight-scoped seat and current availability, recalculates pricing from the database, and displays review; invalid pending data is cleared |
+| `reservations:booking_confirmation` | `GET /bookings/<str:booking_reference>/confirmation/` | URL `booking_reference` | Displays a guest receipt by its high-entropy reference or a registered booking only to its owner; unknown and unauthorized registered references return 404 |
+| `reservations:cancel_booking` | `GET, POST /bookings/<str:booking_reference>/cancel/` | Owned `booking_reference`; POST CSRF token | GET displays details without changing state. Protected POST cancels an owner's future confirmed booking and redirects to Account; anonymous, guest, unknown, and other-user references do not leak details |
 | `reservations:health` | `GET /health/` | None | Returns a non-empty plain-text health response; status 200 |
 
 The flight-search form requires all three fields, resolves origin and destination to
@@ -102,12 +114,28 @@ current values to the same route and replaces only the contents of the stable
 the document across updates. Without HTMX, the submit button performs the same
 complete-page GET as before.
 
+The flight-search hero presents only “Take off toward your next adventure,” with the
+search form directly below the heading.
+The root route redirects to this page, and the shared SkyBook brand always links here;
+there is no separate landing page.
+
 Booking starts from a specific flight result; there is no generic all-flight form.
-Only that flight's available seats pass validation. Review and confirmation reject
-unknown, cross-flight, or booked identifiers. Final creation runs in a transaction,
-while the existing unique-seat constraint remains the final stale/concurrent
-double-booking protection. Guest details map to `guest_name` and `guest_email`, and
-`Booking.user` remains null.
+Only that flight's available seats pass validation. Logged-out visitors can select a seat
+and enter passenger details, but authentication is required before price review and final
+confirmation. The session stores only a version, flight ID, seat ID, passenger name, and
+passenger email; it never stores submitted prices, passwords, payment data, or arbitrary
+redirects. Sign-in or registration resumes through a fixed local route, rechecks the seat,
+and recalculates pricing from persisted data.
+
+Review and confirmation reject unknown, cross-flight, or booked identifiers. Final
+creation runs in a transaction, stores `request.user` atomically, and clears pending
+session data, while a Confirmed-booking-only unique-seat constraint remains the final
+stale/concurrent double-booking protection. Passenger details map to `guest_name` and
+`guest_email` independently of the owner. They remain editable, may describe someone
+other than the account holder, and the passenger email need not belong to any account.
+Booking input never queries users by passenger email and never discloses whether an
+account exists. Historical null-user guest bookings and high-entropy receipts remain
+valid.
 
 All amounts are Decimal whole-yen JPY values. A seat's price is the base fare. Taxes
 and fees are 10% rounded to the nearest whole yen with `ROUND_HALF_UP`; total is their
@@ -115,6 +143,16 @@ sum. The server calculates from the persisted seat and ignores submitted prices.
 Confirmed amounts are copied onto `Booking`, so later seat-price changes cannot alter
 history. References use a random uppercase `SKY-XXXXXXXX` format and a database unique
 constraint.
+
+Cancellation is a persisted status change, never deletion. Existing bookings safely
+default to Confirmed. Only an authenticated owner can cancel their booking, and only
+before scheduled departure, through a CSRF-protected POST after an informational GET.
+Cancelled bookings remain stored internally with references, passenger details,
+ownership, timestamps, flight/seat data, and price snapshots unchanged, but My Bookings
+shows active Confirmed bookings only and does not link cancelled receipts. An owner may
+still open a retained cancelled receipt directly. Cancelled bookings no longer occupy
+inventory, so seat maps, availability counts, and new booking validation make their
+seats available again. Payment is simulated; cancellation performs no real refund.
 
 ## Interface and Accessibility
 
@@ -193,8 +231,8 @@ Start the development server:
 uv run python manage.py runserver
 ```
 
-Visit `http://127.0.0.1:8000/` for the home page or
-`http://127.0.0.1:8000/admin/` to use Django admin after creating a local superuser:
+Visit `http://127.0.0.1:8000/`; the root redirects to flight search. Use
+`http://127.0.0.1:8000/admin/` for Django admin after creating a local superuser:
 
 ```bash
 uv run python manage.py createsuperuser
@@ -222,6 +260,27 @@ PostgreSQL database:
 No uploaded media is currently supported. Render web-service filesystems are
 ephemeral, so any future uploaded media must use durable object storage such as an
 S3-compatible service. Collected static output is rebuildable and is ignored by Git.
+
+## Authentication and Security
+
+SkyBook uses Django's built-in user model, authentication backend, password hashers,
+configured password validators, sessions, and CSRF middleware. Passwords are passed only
+to Django's account forms and are never manually stored, logged, or rendered back after
+validation. New account emails are normalized and checked case-insensitively to prevent
+ordinary duplicate registrations; usernames retain Django's built-in uniqueness rules.
+
+Sign-in accepts `next` only when Django validates it as a safe same-host destination.
+Logout is a CSRF-protected POST action rather than a state-changing link. Account pages
+require authentication, My Bookings filters by the persisted user foreign key and
+Confirmed status, and registered receipts return 404 to anonymous visitors and other users. Every new
+public booking is owned by the authenticated requester. Passenger email is contact data,
+does not need to match the owner or any registered account, and is never used to disclose
+account existence. Historical bookings with `Booking.user = null` remain valid, and
+their existing receipt links remain available.
+
+Current account limitations are intentional: there is no guest booking lookup, real
+refund, email verification, password reset, profile editor, ownership transfer, or
+automatic claiming of historical guest bookings by matching email.
 
 ## Deploying to Render
 
@@ -357,10 +416,10 @@ uv run python manage.py collectstatic --noinput
 uv run gunicorn skybook.wsgi:application --check-config
 ```
 
-Validate the active booking-redesign OpenSpec change:
+Validate the active authentication and booking-ownership OpenSpec change:
 
 ```bash
-openspec validate redesign-connected-booking-flow --strict
+openspec validate add-user-authentication-booking-ownership --strict
 ```
 
 CI runs dependency installation, Ruff formatting and lint checks, and Pytest.
@@ -414,6 +473,10 @@ Exercise 11's Render deployment is defined by `deploy-skybook-to-render` and rel
 to [issue #23](https://github.com/KaswanDevkishan/skybook/issues/23),
 [issue #24](https://github.com/KaswanDevkishan/skybook/issues/24), and
 [issue #25](https://github.com/KaswanDevkishan/skybook/issues/25).
+Registration, authentication, account navigation, and booking ownership are defined by
+`add-user-authentication-booking-ownership` and relate to
+[issue #36](https://github.com/KaswanDevkishan/skybook/issues/36) and
+[issue #37](https://github.com/KaswanDevkishan/skybook/issues/37).
 
 AI-assisted changes require human review before commit. Inspect the final state with:
 
