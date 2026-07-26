@@ -27,7 +27,8 @@ The current milestone provides:
 - A pinned HTMX 2.0.4 dependency and server-rendered flight-result updates
 - Progressive-enhancement fallback to the existing complete-page GET search
 - A Render Web Service running Gunicorn with PostgreSQL and WhiteNoise static delivery
-- Idempotent course-demonstration data initialization during Render deployment
+- Idempotent course-demonstration data covering major domestic Japanese airports and
+  regional routes during Render deployment
 
 Authentication screens, real payments, aircraft-shaped SVG seat maps, booking
 dashboards, cancellation, guest lookup, round trips, tracking, destination galleries,
@@ -71,6 +72,13 @@ skybook/
 
 The database prevents two bookings from referencing the same seat. This invariant does
 not depend on browser validation or a future seat-map interface.
+
+The demonstration catalog contains 36 stable destination codes covering major
+airport-served destinations across Hokkaido, Tohoku, Kanto, Chubu, Kansai, Chugoku,
+Shikoku, Kyushu, and Okinawa. It retains the original Tokyo, Osaka, Sapporo, and
+Fukuoka records and adds airport-specific destinations without renaming existing rows.
+The curated flights provide useful regional search choices, but the dataset is not a
+complete airport directory, route network, timetable, or live aviation schedule.
 
 ## Public HTTP Endpoints
 
@@ -116,8 +124,8 @@ The base also loads the pinned HTMX 2.0.4 release from unpkg with integrity meta
 and the `defer` attribute; no custom JavaScript, JavaScript framework, or frontend
 build pipeline is used.
 The shared page shell provides a skip-to-content link, a stable `main-content` target,
-semantic header, named primary navigation, main, and footer landmarks, plus a visible
-current-page navigation state.
+semantic header, named primary navigation, one main landmark, and a visible
+current-page navigation state. It intentionally has no site footer.
 
 Page templates use logical headings and semantic sections, articles, forms, and detail
 lists. Django continues to render visible labels associated with every form control.
@@ -165,16 +173,19 @@ reservations. Prefer a forward corrective migration after production use; revers
 the schema after new bookings exist requires an export and coordinated application
 rollback and must never drop booking data casually.
 
-Populate connected demonstration cities, airlines, future flights, and classified,
-varied-price seats:
+Populate the representative domestic Japanese destination catalog, airlines, curated
+future flights, and classified, varied-price seats:
 
 ```bash
 uv run python manage.py seed_demo_data
 ```
 
-The command is safe to repeat. It creates stable seats only when missing and preserves
-existing seat records, seeded flight times, bookings, and unrelated data. It never
-reschedules a booked flight or rewrites historical booking amounts.
+The command is safe to repeat. It creates missing destinations, flights, and seats by
+stable identity while preserving all existing city identifiers and names, route
+relationships, schedules, seat classifications and prices, bookings, and unrelated
+data. Future schedules are calculated only when a seeded flight is first created; a
+later run never reschedules an existing flight or rewrites historical booking amounts.
+The catalog is demonstration data rather than a complete or live aviation schedule.
 
 Start the development server:
 
@@ -266,14 +277,14 @@ services. If the service is upgraded to a paid plan, preferably move migration b
 a `preDeployCommand` so it runs as a distinct release step.
 
 Render automatically runs `seed_demo_data` after migrations on every deployment. This
-ensures the course demonstration has cities, airlines, future searchable flights, and
-available seats even when PostgreSQL starts empty. The command is deliberately
-idempotent: it creates each seeded flight's schedule only once, preserves that schedule
-on later deployments, and never reschedules existing bookings. It also preserves
-unrelated records. This is appropriate for SkyBook's course demonstration; a real
-production reservation system would normally initialize and maintain operational data
-through authenticated admin tools or reviewed, controlled import processes instead of
-automatic demo seeding.
+ensures the course demonstration has representative major Japanese domestic
+destinations, curated regional flights, and available priced seats even when
+PostgreSQL starts empty. The command is deliberately idempotent: it creates each
+seeded flight's schedule only once and preserves existing destinations, schedules,
+seat data, bookings, and unrelated records on later deployments. This is not a
+complete or live aviation schedule. A real production reservation system would
+normally initialize and maintain operational data through authenticated admin tools
+or reviewed, controlled import processes instead of automatic demo seeding.
 
 The Blueprint injects Render PostgreSQL's internal `DATABASE_URL`; `ssl_require` is
 not necessary for that internal connection. Never commit either the internal or
