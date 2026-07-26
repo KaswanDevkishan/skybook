@@ -39,18 +39,20 @@
     <h2 id="results-heading">Available flights</h2>
 
     {% if flights %}
-        <div class="flight-list">
+        <ul class="flight-list">
             {% for flight in flights %}
-                <article class="flight-card">
-                    <h3>
-                        <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
-                            {{ flight }}
-                        </a>
-                    </h3>
-                    <p><strong>Departure:</strong> {{ flight.departure_time }}</p>
-                </article>
+                <li>
+                    <article class="flight-card">
+                        <h3>
+                            <a href="{% url 'reservations:flight_detail' flight_id=flight.id %}">
+                                {{ flight }}
+                            </a>
+                        </h3>
+                        <p><strong>Departure:</strong> {{ flight.departure_time }}</p>
+                    </article>
+                </li>
             {% endfor %}
-        </div>
+        </ul>
     {% else %}
         <p class="empty-state">No flights are currently scheduled.</p>
     {% endif %}

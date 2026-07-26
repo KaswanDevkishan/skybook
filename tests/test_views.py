@@ -104,6 +104,7 @@ def test_primary_navigation_identifies_current_page(client, route_name, current_
 
     current_page_link = rf'<a href="{re.escape(current_link)}"\s+aria-current="page">'
     assert re.search(current_page_link, content)
+    assert content.count('aria-current="page"') == 1
 
 
 def test_health_returns_plain_text(client):
@@ -140,6 +141,10 @@ def test_flight_list_orders_flights_by_departure_time(client, flight_factory):
     assert response.status_code == 200
     assert_template_used(response, "reservations/flight_list.html")
     assert list(response.context["flights"]) == [earlier, later]
+    assert '<ul class="flight-list">' in response.content.decode()
+    assert (
+        len(re.findall(r"<li>\s*<article class=\"flight-card\">", response.content.decode())) == 2
+    )
     assert response.content.decode().count('<article class="flight-card">') == 2
 
 
