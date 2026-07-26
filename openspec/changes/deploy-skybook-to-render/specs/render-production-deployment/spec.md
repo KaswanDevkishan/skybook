@@ -106,7 +106,9 @@ SkyBook SHALL provide a `seed_demo_data` management command that creates at leas
 cities, at least two airlines, multiple connected future flights between different
 cities, and seats for every seeded flight. It SHALL use stable identifiers and
 non-destructive create or update operations so repeated runs do not duplicate seeded
-records, delete bookings, or overwrite unrelated records.
+records, delete bookings, reschedule existing seeded flights, or overwrite unrelated
+records. It SHALL reject any configured seeded flight whose origin and destination are
+the same.
 
 #### Scenario: Empty production database is seeded
 - **WHEN** the command runs after migrations on an empty database
@@ -121,8 +123,13 @@ records, delete bookings, or overwrite unrelated records.
 
 #### Scenario: Deployment date advances
 - **WHEN** the command runs during a later deployment
-- **THEN** the owned demo flight schedule is refreshed from the current date so the
-  demonstration does not immediately become outdated
+- **THEN** existing seeded flight departure and arrival times are preserved so existing
+  bookings are never rescheduled, while any missing seeded flight is created relative
+  to the current date
+
+#### Scenario: Seeded route is invalid
+- **WHEN** a configured seeded flight has the same origin and destination
+- **THEN** the command fails with a clear management-command error before creating data
 
 #### Scenario: Render starts the web service
 - **WHEN** Render provides `PORT` and executes the configured start command

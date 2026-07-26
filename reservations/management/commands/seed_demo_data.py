@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -27,10 +27,17 @@ SEAT_NUMBERS = ("1A", "1B", "2A", "2B", "3A", "3B")
 
 
 class Command(BaseCommand):
-    help = "Create or refresh non-destructive course demonstration data."
+    help = "Create missing non-destructive course demonstration data."
 
     @transaction.atomic
     def handle(self, *args, **options):
+        for _, flight_number, origin_code, destination_code, *_ in FLIGHT_DATA:
+            if origin_code == destination_code:
+                raise CommandError(
+                    f"Seeded flight {flight_number} must have different origin and "
+                    "destination codes."
+                )
+
         cities = {
             code: City.objects.get_or_create(code=code, defaults={"name": name})[0]
             for code, name in CITY_DATA
@@ -54,7 +61,7 @@ class Command(BaseCommand):
             departure_time = timezone.make_aware(
                 datetime.combine(schedule_start + timedelta(days=day_offset), departure_clock)
             )
-            flight, _ = Flight.objects.update_or_create(
+            flight, _ = Flight.objects.get_or_create(
                 airline=airlines[airline_code],
                 flight_number=flight_number,
                 defaults={

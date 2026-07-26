@@ -110,19 +110,20 @@ of source control.
 
 Add a `seed_demo_data` Django management command that uses stable city and airline
 codes plus a reserved set of demo flight numbers. Cities and airlines use
-`get_or_create`; demo flights use `update_or_create` so their departures remain in the
-future relative to each deployment date; and seats use `get_or_create` for every demo
-flight. Updates are limited to the reserved demo schedule. The command does not delete
-or recreate rows, so existing bookings and unrelated application data remain intact.
+`get_or_create`; demo flights use `get_or_create` so departure and arrival times are
+assigned only when each flight is first created; and seats use `get_or_create` for
+every demo flight. The command validates that every seeded route connects different
+cities and does not delete, recreate, or reschedule rows, so existing bookings and
+unrelated application data remain intact.
 
 Running the command during the Render build gives a newly migrated course database
 enough connected data for flight search and guest booking. This is intentionally a
 course-demonstration convenience, not a general production data-loading strategy; a
 real airline system would use controlled imports or administration workflows.
 
-Alternative considered: commit a fixture and load it on every build. Fixtures are less
-suited to refreshing relative future datetimes and can make ownership and collision
-behavior less explicit.
+Alternative considered: refresh relative future datetimes on every build. Mutating an
+existing flight's schedule could silently reschedule a booking, so deployment-date
+advances apply only when creating previously missing seeded flights.
 
 ### Verify configuration at both unit and process boundaries
 
@@ -143,9 +144,9 @@ validation.
 - [Build-time migrations can make a bad release harder to roll back] → Fail the build
   immediately on migration errors, review migrations before release, prefer forward
   fixes, and document the free plan's limited recovery options.
-- [Repeated builds could duplicate or erase demonstration data] → Use stable
-  identifiers and non-destructive create/update operations, and test reruns with
-  existing bookings and unrelated records.
+- [Repeated builds could duplicate, erase, or reschedule demonstration data] → Use
+  stable identifiers and create-only schedule defaults, and test later-dated reruns
+  with existing bookings and unrelated records.
 - [Free Render PostgreSQL expires after 30 days and is later deleted] → Document the
   lifetime clearly and require upgrade or data preservation before expiry.
 - [Render's filesystem is ephemeral] → Store only rebuildable collected static assets

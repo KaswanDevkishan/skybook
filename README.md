@@ -152,8 +152,9 @@ Populate connected demonstration cities, airlines, future flights, and seats:
 uv run python manage.py seed_demo_data
 ```
 
-The command is safe to repeat. It refreshes only its stable demo flight schedule,
-creates missing demo records, and does not delete bookings or unrelated data.
+The command is safe to repeat. It creates missing demo records while preserving every
+existing seeded flight's departure and arrival times. Existing bookings are therefore
+never rescheduled, and the command does not delete bookings or unrelated data.
 
 Start the development server:
 
@@ -247,10 +248,12 @@ a `preDeployCommand` so it runs as a distinct release step.
 Render automatically runs `seed_demo_data` after migrations on every deployment. This
 ensures the course demonstration has cities, airlines, future searchable flights, and
 available seats even when PostgreSQL starts empty. The command is deliberately
-idempotent and preserves existing bookings and unrelated records. This is appropriate
-for SkyBook's course demonstration; a real production reservation system would
-normally initialize and maintain operational data through authenticated admin tools or
-reviewed, controlled import processes instead of automatic demo seeding.
+idempotent: it creates each seeded flight's schedule only once, preserves that schedule
+on later deployments, and never reschedules existing bookings. It also preserves
+unrelated records. This is appropriate for SkyBook's course demonstration; a real
+production reservation system would normally initialize and maintain operational data
+through authenticated admin tools or reviewed, controlled import processes instead of
+automatic demo seeding.
 
 The Blueprint injects Render PostgreSQL's internal `DATABASE_URL`; `ssl_require` is
 not necessary for that internal connection. Never commit either the internal or
