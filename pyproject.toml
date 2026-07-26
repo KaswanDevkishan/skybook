@@ -5,7 +5,11 @@ description = "Django-based airline ticket reservation system for a Web Engineer
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "dj-database-url>=2.3,<3.0",
     "django>=5.2,<6.0",
+    "gunicorn>=23.0,<24.0",
+    "psycopg[binary]>=3.2,<4.0",
+    "whitenoise>=6.9,<7.0",
 ]
 
 [dependency-groups]
